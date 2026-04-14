@@ -1,0 +1,47 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
+import { isLocked, getLockTime } from "@/lib/lock";
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ year: string }> }
+) {
+  const { userId, error } = await requireAuth();
+  if (error) return error;
+
+  const { year } = await params;
+  const y = +year;
+
+  if (!isLocked(y)) {
+    return NextResponse.json({ locked: false, locksAt: getLockTime(y) });
+  }
+
+  const season = await prisma.season.findUnique({
+    where: { year: y },
+    include: {
+      series: { include: { homeTeam: true, awayTeam: true } },
+      playoffLeaders: true,
+      generalConfig: true,
+      snackQuestions: { orderBy: { order: "asc" } },
+      predictions: {
+        include: {
+          seriesPredictions: true,
+          leaderPredictions: true,
+          generalPrediction: true,
+          snackAnswers: true,
+        },
+      },
+    },
+  });
+  if (!season) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  return NextResponse.json({
+    season: { year: season.year, lockedAt: season.lockedAt },
+    series: season.series,
+    playoffLeaders: season.playoffLeaders,
+    generalConfig: season.generalConfig,
+    snackQuestions: season.snackQuestions,
+    predictions: season.predictions,
+  });
+}

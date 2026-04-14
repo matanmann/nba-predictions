@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/lock-predictions",
+      "schedule": "55 22 19 4 *"
+    },
+    {
+      "path": "/api/cron/sync-scores",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

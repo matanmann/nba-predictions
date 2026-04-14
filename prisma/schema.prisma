@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Season {
+  id                 Int       @id @default(autoincrement())
+  year               Int       @unique
+  submissionDeadline DateTime
+  firstTipoff        DateTime
+  isActive           Boolean   @default(false)
+  predictionsLocked  Boolean   @default(false)
+  lockedAt           DateTime?
+
+  teams          Team[]
+  series         Series[]
+  predictions    Prediction[]
+  generalConfig  GeneralConfig?
+  snackQuestions SnackQuestion[]
+  playoffLeaders PlayoffLeader[]
+  groups         Group[]
+  createdAt      DateTime @default(now())
+}
+
+model Team {
+  id         String @id
+  name       String
+  abbr       String
+  conference String       // "E" or "W"
+  seed       Int
+  color      String
+  seasonId   Int
+  season     Season @relation(fields: [seasonId], references: [id])
+
+  homeSeries Series[] @relation("HomeSeries")
+  awaySeries Series[] @relation("AwaySeries")
+
+  @@unique([seasonId, seed, conference])
+}
+
+model Series {
+  id            String  @id
+  seasonId      Int
+  round         Int            // 1 = First Round, 2 = Semis, 3 = Conf Finals, 4 = Finals
+  conference    String         // "E", "W", or "Finals"
+  label         String         // e.g. "E1", "W_R2A", "ECF", "Finals"
+  homeTeamId    String
+  awayTeamId    String
+  winnerId      String?
+  gameCount     Int?
+  leadingScorer String?
+  isComplete    Boolean @default(false)
+
+  season   Season @relation(fields: [seasonId], references: [id])
+  homeTeam Team   @relation("HomeSeries", fields: [homeTeamId], references: [id])
+  awayTeam Team   @relation("AwaySeries", fields: [awayTeamId], references: [id])
+
+  seriesPredictions SeriesPrediction[]
+}
+
+model User {
+  id          String   @id @default(cuid())
+  clerkId     String   @unique
+  name        String
+  email       String   @unique
+  role        String   @default("user")
+  predictions Prediction[]
+  memberships Membership[]
+  createdAt   DateTime @default(now())
+}
+
+model Prediction {
+  id         Int       @id @default(autoincrement())
+  userId     String
+  seasonId   Int
+  isLocked   Boolean   @default(false)
+  totalScore Int       @default(0)
+  lastScored DateTime?
+  updatedAt  DateTime  @updatedAt
+
+  user   User   @relation(fields: [userId], references: [clerkId])
+  season Season @relation(fields: [seasonId], references: [id])
+
+  seriesPredictions SeriesPrediction[]
+  leaderPredictions LeaderPrediction[]
+  generalPrediction GeneralPrediction?
+  snackAnswers      SnackAnswer[]
+
+  @@unique([userId, seasonId])
+}
+
+model SeriesPrediction {
+  id            Int     @id @default(autoincrement())
+  predictionId  Int
+  seriesId      String
+  winnerId      String
+  gameCount     Int
+  leadingScorer String
+  winnerScore   Int     @default(0)
+  gamesScore    Int     @default(0)
+  scorerScore   Int     @default(0)
+  bonusApplied  Boolean @default(false)
+  totalScore    Int     @default(0)
+
+  prediction Prediction @relation(fields: [predictionId], references: [id])
+  series     Series     @relation(fields: [seriesId], references: [id])
+
+  @@unique([predictionId, seriesId])
+}
+
+model LeaderPrediction {
+  id           Int    @id @default(autoincrement())
+  predictionId Int
+  category     String   // "Points", "Assists", "Rebounds", "Blocks", "Steals"
+  playerName   String
+  score        Int    @default(0)
+
+  prediction Prediction @relation(fields: [predictionId], references: [id])
+
+  @@unique([predictionId, category])
+}
+
+model GeneralPrediction {
+  id           Int  @id @default(autoincrement())
+  predictionId Int  @unique
+  answers      Json       // { overtimes: 5, gameWinners: 2, game7s: 3 }
+  score        Int  @default(0)
+
+  prediction Prediction @relation(fields: [predictionId], references: [id])
+}
+
+model GeneralConfig {
+  id        Int     @id @default(autoincrement())
+  seasonId  Int     @unique
+  questions Json       // array of { key, label, type }
+  results   Json?      // { overtimes: 8, gameWinners: 3, game7s: 3 } — filled during playoffs
+
+  season Season @relation(fields: [seasonId], references: [id])
+}
+
+model SnackQuestion {
+  id       Int      @id @default(autoincrement())
+  seasonId Int
+  order    Int
+  question String
+  result   Boolean?     // null = pending, true/false = resolved
+
+  season  Season       @relation(fields: [seasonId], references: [id])
+  answers SnackAnswer[]
+}
+
+model SnackAnswer {
+  id           Int  @id @default(autoincrement())
+  predictionId Int
+  questionId   Int
+  answer       Boolean
+  score        Int @default(0)
+
+  prediction Prediction    @relation(fields: [predictionId], references: [id])
+  question   SnackQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([predictionId, questionId])
+}
+
+model PlayoffLeader {
+  id         Int    @id @default(autoincrement())
+  seasonId   Int
+  category   String     // "Points", "Assists", "Rebounds", "Blocks", "Steals"
+  playerName String
+
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@unique([seasonId, category])
+}
+
+model Group {
+  id        String @id @default(cuid())
+  name      String
+  code      String @unique     // 7-char invite code
+  seasonId  Int
+  createdBy String
+
+  season      Season       @relation(fields: [seasonId], references: [id])
+  memberships Membership[]
+  feedEvents  FeedEvent[]
+  createdAt   DateTime @default(now())
+}
+
+model Membership {
+  id       String @id @default(cuid())
+  groupId  String
+  userId   String
+  role     String @default("member")
+
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [clerkId])
+  joinedAt DateTime @default(now())
+
+  @@unique([groupId, userId])
+}
+
+model FeedEvent {
+  id        String   @id @default(cuid())
+  groupId   String
+  type      String       // "join", "lock", "series_complete", "score_change"
+  userId    String?
+  payload   Json
+
+  group     Group    @relation(fields: [groupId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([groupId, createdAt])
+}
+
+model LiveGameCache {
+  id        String   @id
+  data      Json
+  updatedAt DateTime @default(now())
+}

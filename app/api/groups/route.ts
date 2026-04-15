@@ -37,9 +37,12 @@ export async function POST(req: NextRequest) {
   const { userId, error } = await requireAuth();
   if (error) return error;
 
-  const { name, seasonYear } = await req.json();
+  const { name, seasonYear, nickname } = await req.json();
   if (!name?.trim()) {
     return NextResponse.json({ error: "Name required" }, { status: 400 });
+  }
+  if (!nickname?.trim()) {
+    return NextResponse.json({ error: "Nickname required" }, { status: 400 });
   }
 
   let season = undefined;
@@ -72,7 +75,7 @@ export async function POST(req: NextRequest) {
       code,
       seasonId: season.id,
       createdBy: userId!,
-      memberships: { create: { userId: userId!, role: "admin" } },
+      memberships: { create: { userId: userId!, role: "admin", nickname: nickname.trim() } },
     },
   });
 

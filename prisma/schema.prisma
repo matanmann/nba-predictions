@@ -195,6 +195,7 @@ model Membership {
   groupId  String
   userId   String
   role     String @default("member")
+  nickname String?
 
   group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [userId], references: [clerkId])

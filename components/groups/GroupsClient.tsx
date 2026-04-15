@@ -19,6 +19,8 @@ export default function GroupsClient() {
   const [showJoin, setShowJoin] = useState(false)
   const [groupName, setGroupName] = useState('')
   const [joinCode, setJoinCode] = useState('')
+  const [nickname, setNickname] = useState('')
+  const [joinNickname, setJoinNickname] = useState('')
   const [creating, setCreating] = useState(false)
   const [joining, setJoining] = useState(false)
   const router = useRouter()
@@ -52,20 +54,21 @@ export default function GroupsClient() {
 
   const createGroup = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!groupName.trim()) return
+    if (!groupName.trim() || !nickname.trim()) return
 
     setCreating(true)
     try {
       const res = await fetch('/api/groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: groupName }),
+        body: JSON.stringify({ name: groupName, nickname }),
       })
 
       if (res.ok) {
         const data = await res.json()
         setGroups(prev => [...prev, { ...data.group, memberCount: 1 }])
         setGroupName('')
+        setNickname('')
         setShowCreate(false)
       } else {
         const error = await res.json()
@@ -81,14 +84,14 @@ export default function GroupsClient() {
 
   const joinGroup = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!joinCode.trim()) return
+    if (!joinCode.trim() || !joinNickname.trim()) return
 
     setJoining(true)
     try {
       const res = await fetch('/api/groups/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: joinCode }),
+        body: JSON.stringify({ code: joinCode, nickname: joinNickname }),
       })
 
       if (res.ok) {
@@ -100,6 +103,7 @@ export default function GroupsClient() {
           fetchGroups() // Refresh the groups list
         }
         setJoinCode('')
+        setJoinNickname('')
         setShowJoin(false)
       } else {
         const error = await res.json()
@@ -214,6 +218,17 @@ export default function GroupsClient() {
                   required
                 />
               </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Your Nickname</label>
+                <input
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  placeholder="e.g. John"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -250,6 +265,17 @@ export default function GroupsClient() {
                   placeholder="Enter 7-character code"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 uppercase"
                   maxLength={7}
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Your Nickname</label>
+                <input
+                  type="text"
+                  value={joinNickname}
+                  onChange={(e) => setJoinNickname(e.target.value)}
+                  placeholder="e.g. John"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                   required
                 />
               </div>

@@ -30,12 +30,13 @@ export async function GET(
     return NextResponse.json({ error: "Group not found" }, { status: 404 });
   }
 
-  const membershipUsers = await prisma.membership.findMany({
+  const memberships = await prisma.membership.findMany({
     where: { groupId: id },
-    select: { userId: true },
+    select: { userId: true, nickname: true },
   });
 
-  const memberIds = membershipUsers.map((m) => m.userId);
+  const memberIds = memberships.map((m) => m.userId);
+  const nicknameMap = new Map(memberships.map((m) => [m.userId, m.nickname || 'Unknown']));
 
   // Get group predictions only for members of this group
   const predictions = await prisma.prediction.findMany({
@@ -43,16 +44,13 @@ export async function GET(
       seasonId: group.seasonId,
       userId: { in: memberIds },
     },
-    include: {
-      user: { select: { name: true } },
-    },
   });
 
   // Calculate scores and sort by total score
   const leaderboard = predictions
     .map((p) => ({
       userId: p.userId,
-      userName: p.user.name,
+      userName: nicknameMap.get(p.userId) || 'Unknown',
       totalScore: p.totalScore,
     }))
     .sort((a, b) => b.totalScore - a.totalScore)

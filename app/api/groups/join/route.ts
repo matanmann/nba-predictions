@@ -6,9 +6,12 @@ export async function POST(req: NextRequest) {
   const { userId, error } = await requireAuth();
   if (error) return error;
 
-  const { code } = await req.json();
+  const { code, nickname } = await req.json();
   if (!code?.trim()) {
     return NextResponse.json({ error: "Code required" }, { status: 400 });
+  }
+  if (!nickname?.trim()) {
+    return NextResponse.json({ error: "Nickname required" }, { status: 400 });
   }
 
   const group = await prisma.group.findUnique({
@@ -26,7 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   await prisma.membership.create({
-    data: { groupId: group.id, userId: userId! },
+    data: { groupId: group.id, userId: userId!, nickname: nickname.trim() },
   });
 
   await prisma.feedEvent.create({

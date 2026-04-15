@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "NBA Playoff Predictions 2025",
+  title: "NBA Playoff Predictions 2026",
   description: "Predict the playoffs, compete with friends",
 };
 

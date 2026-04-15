@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
   const { error } = await requireAdmin();
   if (error) return error;
 
-  const year = +(req.nextUrl.searchParams.get("year") ?? "2025");
+  const year = +(req.nextUrl.searchParams.get("year") ?? "2026");
   const season = await prisma.season.findUnique({
     where: { year },
     include: {

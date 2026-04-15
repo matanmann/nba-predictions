@@ -47,14 +47,14 @@ async function main() {
 
   // ── Round 1 Series (1v8, 2v7, 3v6, 4v5) ──
   const series = [
-    { id: "2025-E1", round: 1, conference: "E", label: "E1", homeTeamId: "bos", awayTeamId: "phi" },
-    { id: "2025-E2", round: 1, conference: "E", label: "E2", homeTeamId: "nyc", awayTeamId: "mia" },
-    { id: "2025-E3", round: 1, conference: "E", label: "E3", homeTeamId: "mil", awayTeamId: "orl" },
-    { id: "2025-E4", round: 1, conference: "E", label: "E4", homeTeamId: "cle", awayTeamId: "ind" },
-    { id: "2025-W1", round: 1, conference: "W", label: "W1", homeTeamId: "okc", awayTeamId: "lal" },
-    { id: "2025-W2", round: 1, conference: "W", label: "W2", homeTeamId: "den", awayTeamId: "nop" },
-    { id: "2025-W3", round: 1, conference: "W", label: "W3", homeTeamId: "min", awayTeamId: "lac" },
-    { id: "2025-W4", round: 1, conference: "W", label: "W4", homeTeamId: "dal", awayTeamId: "pho" },
+    { id: "2026-E1", round: 1, conference: "E", label: "E1", homeTeamId: "bos", awayTeamId: "phi" },
+    { id: "2026-E2", round: 1, conference: "E", label: "E2", homeTeamId: "nyc", awayTeamId: "mia" },
+    { id: "2026-E3", round: 1, conference: "E", label: "E3", homeTeamId: "mil", awayTeamId: "orl" },
+    { id: "2026-E4", round: 1, conference: "E", label: "E4", homeTeamId: "cle", awayTeamId: "ind" },
+    { id: "2026-W1", round: 1, conference: "W", label: "W1", homeTeamId: "okc", awayTeamId: "lal" },
+    { id: "2026-W2", round: 1, conference: "W", label: "W2", homeTeamId: "den", awayTeamId: "nop" },
+    { id: "2026-W3", round: 1, conference: "W", label: "W3", homeTeamId: "min", awayTeamId: "lac" },
+    { id: "2026-W4", round: 1, conference: "W", label: "W4", homeTeamId: "dal", awayTeamId: "pho" },
   ];
 
   for (const s of series) {

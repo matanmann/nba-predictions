@@ -13,13 +13,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <nav className="border-b border-gray-200 bg-white px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link
-              href="/predict/2025"
+              href="/predict/2026"
               className="text-sm font-medium text-gray-900"
             >
-              🏀 NBA 2025
+              🏀 NBA 2026
             </Link>
             <Link
-              href="/dashboard/2025"
+              href="/dashboard/2026"
               className="text-sm text-gray-500 hover:text-gray-900"
             >
               Dashboard

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function HomePage() {
-  redirect("/predict/2025");
+  redirect("/predict/2026");
 }

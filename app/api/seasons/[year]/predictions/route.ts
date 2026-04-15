@@ -16,7 +16,7 @@ const submitSchema = z.object({
     })
   ),
   leaderPredictions: z.record(z.enum(LEADER_CATEGORIES), z.string().min(1).max(100)),
-  generalAnswers: z.record(z.number().int().min(0).max(999)),
+  generalAnswers: z.record(z.string(), z.number().int().min(0).max(999)),
   snackAnswers: z.array(
     z.object({
       questionId: z.number().int().positive(),

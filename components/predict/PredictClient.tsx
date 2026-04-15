@@ -322,29 +322,33 @@ const PLAYER_IMAGES: Record<string, string> = {
 }
 
 const PLAYOFF_PLAYERS: Record<string, string[]> = {
-  CLE: ['Donovan Mitchell','Darius Garland','Evan Mobley','Jarrett Allen','Max Strus','Caris LeVert','Isaac Okoro','Sam Merrill','Georges Niang','Dean Wade','Ty Jerome','Craig Porter Jr.','Tristan Thompson'],
-  BOS: ['Jayson Tatum','Jaylen Brown','Derrick White','Jrue Holiday','Kristaps Porzingis','Payton Pritchard','Al Horford','Sam Hauser','Luke Kornet','Neemias Queta','Xavier Tillman','Oshae Brissett','JD Davison'],
+  // --- Eastern Conference Playoff Teams ---
+  DET: ['Cade Cunningham','Jaden Ivey','Ausar Thompson','Jalen Duren','Malik Beasley','Tim Hardaway Jr.','Tobias Harris','Isaiah Stewart','Simone Fontecchio','Marcus Sasser','Ron Holland','Tosan Evbuomwan'],
+  BOS: ['Jayson Tatum','Jaylen Brown','Derrick White','Anfernee Simons','Kristaps Porzingis','Payton Pritchard','Al Horford','Sam Hauser','Luke Kornet','Neemias Queta','Xavier Tillman','Oshae Brissett','JD Davison'], // סיימונס הגיע, הולידיי עזב
   NYK: ['Jalen Brunson','Karl-Anthony Towns','Mikal Bridges','OG Anunoby','Josh Hart','Miles McBride','Mitchell Robinson','Precious Achiuwa','Cameron Payne','Donte DiVincenzo','Jericho Sims','Pacome Dadiet','Charlie Brown Jr.'],
+  CLE: ['Donovan Mitchell','Darius Garland','Evan Mobley','Jarrett Allen','Max Strus','Caris LeVert','Isaac Okoro','Sam Merrill','Georges Niang','Dean Wade','Ty Jerome','Craig Porter Jr.','Tristan Thompson'],
+  TOR: ['Scottie Barnes','RJ Barrett','Immanuel Quickley','Jakob Poeltl','Grady Dick','Bruce Brown','Kelly Olynyk','Davion Mitchell','Ochai Agbaji'],
+  ATL: ['Trae Young','Jalen Johnson','De\'Andre Hunter','Clint Capela','Dyson Daniels','Bogdan Bogdanovic','Zaccharie Risacher','Larry Nance Jr.','Garrison Mathews','Kobe Bufkin','Onyeka Okongwu','Bruno Fernando'],
+  PHI: ['Joel Embiid','Tyrese Maxey','Paul George','Kelly Oubre Jr.','Caleb Martin','Kyle Lowry','Eric Gordon','Andre Drummond','Guerschon Yabusele','Ricky Council IV'],
+  MIA: ['Jimmy Butler','Bam Adebayo','Tyler Herro','Terry Rozier','Jaime Jaquez Jr.','Duncan Robinson','Nikola Jovic','Kevin Love','Haywood Highsmith','Josh Richardson','Thomas Bryant'],
+
+  // --- Eastern Play-In Teams ---
   IND: ['Tyrese Haliburton','Pascal Siakam','Myles Turner','Andrew Nembhard','Bennedict Mathurin','Aaron Nesmith','T.J. McConnell','Obi Toppin','Isaiah Jackson','Jarace Walker','Ben Sheppard','Kendrick Nunn','Damiris Dantas'],
   ORL: ['Paolo Banchero','Franz Wagner','Jalen Suggs','Wendell Carter Jr.','Jonathan Isaac','Kentavious Caldwell-Pope','Cole Anthony','Goga Bitadze','Moritz Wagner','Anthony Black','Jett Howard','Gary Harris','Trevelin Queen'],
-  MIL: ['Giannis Antetokounmpo','Damian Lillard','Khris Middleton','Brook Lopez','Bobby Portis','Pat Connaughton','AJ Green','Andre Jackson Jr.','Gary Trent Jr.','Taurean Prince','MarJon Beauchamp','Delonte Washington','Ryan Rollins'],
-  DET: ['Cade Cunningham','Jaden Ivey','Ausar Thompson','Jalen Duren','Malik Beasley','Tim Hardaway Jr.','Tobias Harris','Isaiah Stewart','Simone Fontecchio','Marcus Sasser','Ron Holland','Tosan Evbuomwan','Bob Cousy'],
-  ATL: ['Trae Young','Jalen Johnson','De\'Andre Hunter','Clint Capela','Dyson Daniels','Bogdan Bogdanovic','Zaccharie Risacher','Larry Nance Jr.','Garrison Mathews','Kobe Bufkin','Onyeka Okongwu','Vince Carter','Bruno Fernando'],
-  MIA: ['Jimmy Butler','Bam Adebayo','Tyler Herro','Terry Rozier','Jaime Jaquez Jr.','Duncan Robinson','Nikola Jovic','Kevin Love','Haywood Highsmith','Josh Richardson','Thomas Bryant','Kyle Lowry','Caleb Martin'],
-  CHI: ['Zach LaVine','Coby White','Nikola Vucevic','Patrick Williams','Ayo Dosunmu','Josh Giddey','Andre Drummond','Torrey Craig','Jevon Carter','Julian Phillips','Chennedy Carter','Dalen Terry','Matas Buzelis'],
-  OKC: ['Shai Gilgeous-Alexander','Jalen Williams','Chet Holmgren','Lu Dort','Isaiah Hartenstein','Alex Caruso','Aaron Wiggins','Kenrich Williams','Isaiah Joe','Ousmane Dieng','Cason Wallace','Jaylin Williams','Luguentz Dort'],
-  HOU: ['Jalen Green','Alperen Sengun','Fred VanVleet','Jabari Smith Jr.','Dillon Brooks','Amen Thompson','Tari Eason','Steven Adams','Cam Whitmore','Jeff Green','Reed Sheppard','Nate Williams','Jermaine Samuels'],
-  GSW: ['Stephen Curry','Andrew Wiggins','Draymond Green','Jonathan Kuminga','Kevon Looney','Buddy Hield','Gary Payton II','Brandin Podziemski','Trayce Jackson-Davis','Moses Moody','De\'Anthony Melton','Gui Santos','Lester Quinones'],
-  MEM: ['Ja Morant','Desmond Bane','Jaren Jackson Jr.','Marcus Smart','Zach Edey','Luke Kennard','GG Jackson','Santi Aldama','John Konchar','Brandon Clarke','Scotty Pippen Jr.','Jake LaRavia','Yuki Togashi'],
+
+  // --- Western Conference Playoff Teams ---
+  OKC: ['Shai Gilgeous-Alexander','Jalen Williams','Chet Holmgren','Lu Dort','Isaiah Hartenstein','Alex Caruso','Aaron Wiggins','Kenrich Williams','Isaiah Joe','Ousmane Dieng','Cason Wallace','Jaylin Williams'],
+  SAS: ['Victor Wembanyama','Chris Paul','Devin Vassell','Jeremy Sochan','Harrison Barnes','Stephon Castle','Keldon Johnson','Zach Collins','Malaki Branham','Blake Wesley'],
   DEN: ['Nikola Jokic','Jamal Murray','Michael Porter Jr.','Aaron Gordon','Christian Braun','Russell Westbrook','Peyton Watson','Julian Strawther','Dario Saric','Zeke Nnaji','DeAndre Jordan','Hunter Tyson','Braxton Key'],
-  LAC: ['James Harden','Kawhi Leonard','Ivica Zubac','Norman Powell','Terance Mann','Derrick Jones Jr.','Amir Coffey','Bones Hyland','P.J. Tucker','Kris Dunn','Brandon Boston Jr.','Montrezl Harrell','Lou Williams'],
+  LAL: ['Luka Doncic','LeBron James','Austin Reaves','D\'Angelo Russell','Rui Hachimura','Jarred Vanderbilt','Gabe Vincent','Christian Wood','Cam Reddish','Max Christie','Jalen Hood-Schifino','Jaxson Hayes','Dorian Finney-Smith'], // לוקה בפנים, AD יצא
+  HOU: ['Jalen Green','Alperen Sengun','Fred VanVleet','Jabari Smith Jr.','Dillon Brooks','Amen Thompson','Tari Eason','Steven Adams','Cam Whitmore','Jeff Green','Reed Sheppard','Nate Williams','Jermaine Samuels'],
   MIN: ['Anthony Edwards','Julius Randle','Rudy Gobert','Jaden McDaniels','Mike Conley','Naz Reid','Nickeil Alexander-Walker','Joe Ingles','Josh Minott','Rob Dillingham','Leonard Miller','Wendell Moore Jr.','Troy Brown Jr.'],
-  DAL: ['Luka Doncic','Kyrie Irving','P.J. Washington','Daniel Gafford','Dereck Lively II','Klay Thompson','Naji Marshall','Quentin Grimes','Dante Exum','Jaden Hardy','Dwight Powell','Markieff Morris','Spencer Dinwiddie'],
+  POR: ['Deni Avdija','Jrue Holiday','Jerami Grant','Deandre Ayton','Shaedon Sharpe','Toumani Camara','Donovan Clingan','Robert Williams III','Scoot Henderson','Kris Murray','Dalano Banton','Matisse Thybulle','Justin Minaya'], // הולידיי בפנים, סיימונס עזב
   PHX: ['Kevin Durant','Devin Booker','Bradley Beal','Jusuf Nurkic','Grayson Allen','Royce O\'Neale','Eric Gordon','Josh Okogie','Drew Eubanks','Bol Bol','Nassir Little','Damion Lee','Ish Wainright'],
-  SAC: ['De\'Aaron Fox','Domantas Sabonis','Keegan Murray','DeMar DeRozan','Malik Monk','Kevin Huerter','Trey Lyles','Keon Ellis','Alex Len','Colby Jones','Davion Mitchell','Harrison Barnes','Chris Duarte'],
-  NOP: ['Zion Williamson','Brandon Ingram','CJ McCollum','Trey Murphy III','Herb Jones','Jonas Valanciunas','Jose Alvarado','Dejounte Murray','Naji Marshall','Jordan Hawkins','Dyson Daniels','Larry Nance Jr.','Kira Lewis Jr.'],
-  LAL: ['LeBron James','Anthony Davis','Austin Reaves','D\'Angelo Russell','Rui Hachimura','Jarred Vanderbilt','Gabe Vincent','Christian Wood','Cam Reddish','Max Christie','Jalen Hood-Schifino','Jaxson Hayes','Dorian Finney-Smith'],
-  POR: ['Deni Avdija','Anfernee Simons','Jerami Grant','Deandre Ayton','Shaedon Sharpe','Toumani Camara','Donovan Clingan','Robert Williams III','Scoot Henderson','Kris Murray','Dalano Banton','Matisse Thybulle','Justin Minaya'],
+
+  // --- Western Play-In Teams ---
+  GSW: ['Stephen Curry','Andrew Wiggins','Draymond Green','Jonathan Kuminga','Kevon Looney','Buddy Hield','Gary Payton II','Brandin Podziemski','Trayce Jackson-Davis','Moses Moody','De\'Anthony Melton','Gui Santos','Lester Quinones'],
+  SAC: ['De\'Aaron Fox','Domantas Sabonis','Keegan Murray','DeMar DeRozan','Malik Monk','Kevin Huerter','Trey Lyles','Keon Ellis','Alex Len','Colby Jones','Davion Mitchell','Harrison Barnes','Chris Duarte']
 }
 
 const LEADER_CATEGORIES = ['Points','Assists','Rebounds','Blocks','Steals'] as const

@@ -1,5 +1,6 @@
-import DashboardClient from '@/components/dashboard/DashboardClient'
+import DashboardClient from "@/components/dashboard/DashboardClient";
 
-export default function Page({ params }: { params: { year: string } }) {
-  return <DashboardClient year={params.year} />
+export default async function Page({ params }: { params: Promise<{ year: string }> }) {
+  const { year } = await params;
+  return <DashboardClient year={+year} />;
 }

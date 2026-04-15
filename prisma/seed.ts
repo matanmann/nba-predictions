@@ -4,13 +4,13 @@ const prisma = new PrismaClient();
 async function main() {
   // ── Season ──
   const season = await prisma.season.upsert({
-    where: { year: 2025 },
+    where: { year: 2026 },
     update: {},
     create: {
-      year: 2025,
-      // Adjust these to the actual 2025 playoff schedule
-      submissionDeadline: new Date("2025-04-19T22:55:00Z"),
-      firstTipoff: new Date("2025-04-19T23:00:00Z"),
+      year: 2026,
+      // Adjust these to the actual 2026 playoff schedule
+      submissionDeadline: new Date("2026-04-18T19:55:00Z"),
+      firstTipoff: new Date("2026-04-18T20:00:00Z"),
       isActive: true,
     },
   });
@@ -96,7 +96,7 @@ async function main() {
     });
   }
 
-  console.log("Seed complete for season 2025");
+  console.log("Seed complete for season 2026");
 }
 
 main()

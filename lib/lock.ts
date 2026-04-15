@@ -6,8 +6,8 @@ export interface LockConfig {
 
 const LOCK_CONFIGS: LockConfig[] = [
   {
-    year: 2025,
-    firstTipoff: new Date("2025-04-19T23:00:00Z"),
+    year: 2026,
+    firstTipoff: new Date("2026-04-18T20:00:00Z"),
     lockMinutesBefore: 5,
   },
 ];

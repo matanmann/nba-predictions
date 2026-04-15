@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useLockStatus } from '@/hooks/useLockStatus'
+import { useRouter } from 'next/navigation'
 
 interface Team { id: string; name: string; abbr: string; seed: number; conference: string; color: string }
 interface Series { id: string; round: number; conference: string; label: string; homeTeam: Team; awayTeam: Team }
 interface SnackQuestion { id: number; order: number; question: string }
 interface GeneralQuestion { key: string; label: string; type: string }
 interface SeasonData { series: Series[]; snackQuestions: SnackQuestion[]; generalConfig: { questions: GeneralQuestion[] } }
+interface GroupInfo { id: string; name: string; code: string; season: { year: number } }
 
 const TEAM_LOGOS: Record<string, string> = {
   CLE: 'https://cdn.nba.com/logos/nba/1610612739/primary/L/logo.svg',
@@ -290,7 +292,6 @@ const PLAYER_IMAGES: Record<string, string> = {
   'Jose Alvarado': 'https://cdn.nba.com/headshots/nba/latest/1040x760/1630631.png',
   'Dejounte Murray': 'https://cdn.nba.com/headshots/nba/latest/1040x760/1627749.png',
   'Jordan Hawkins': 'https://cdn.nba.com/headshots/nba/latest/1040x760/1641721.png',
-  'Dyson Daniels': 'https://cdn.nba.com/headshots/nba/latest/1040x760/1630700.png',
   'Austin Reaves': 'https://cdn.nba.com/headshots/nba/latest/1040x760/1630559.png',
   'D\'Angelo Russell': 'https://cdn.nba.com/headshots/nba/latest/1040x760/1626156.png',
   'Rui Hachimura': 'https://cdn.nba.com/headshots/nba/latest/1040x760/1629060.png',
@@ -372,7 +373,8 @@ function buildFullBracket(r1Series: Series[], preds: Record<string, { winnerId: 
   }
 }
 
-export default function PredictClient({ year }: { year: number }) {
+export default function PredictClient({ year, initialGroupId }: { year: number; initialGroupId?: string }) {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('Bracket')
   const [seasonData, setSeasonData] = useState<SeasonData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -383,6 +385,11 @@ export default function PredictClient({ year }: { year: number }) {
   const [snackAnswers, setSnackAnswers] = useState<Record<number, boolean>>({})
   const [mvpPreds, setMvpPreds] = useState<Record<string, string>>({ eastMvp: '', westMvp: '', finalsMvp: '' })
   const [submitStatus, setSubmitStatus] = useState<'idle'|'saving'|'saved'|'error'>('idle')
+  const [groups, setGroups] = useState<GroupInfo[]>([])
+  const [selectedGroupId, setSelectedGroupId] = useState(initialGroupId ?? '')
+  const [groupInfo, setGroupInfo] = useState<GroupInfo | null>(null)
+  const [groupsLoading, setGroupsLoading] = useState(true)
+  const [groupError, setGroupError] = useState<string | null>(null)
   const lockStatus = useLockStatus(year)
 
   const fullBracket = useMemo(() => {
@@ -448,6 +455,52 @@ export default function PredictClient({ year }: { year: number }) {
     load()
   }, [year])
 
+  useEffect(() => {
+    async function loadGroups() {
+      try {
+        const res = await fetch('/api/groups')
+        if (!res.ok) throw new Error('Failed to load groups')
+        const data = await res.json()
+        setGroups(data.groups || [])
+        if (!initialGroupId && data.groups?.length) {
+          setSelectedGroupId(data.groups[0].id)
+        }
+      } catch (e: any) {
+        setGroupError(e.message)
+      } finally {
+        setGroupsLoading(false)
+      }
+    }
+    loadGroups()
+  }, [initialGroupId])
+
+  useEffect(() => {
+    if (!selectedGroupId) {
+      setGroupInfo(null)
+      return
+    }
+
+    async function loadGroup() {
+      try {
+        const res = await fetch(`/api/groups/${selectedGroupId}`)
+        if (!res.ok) throw new Error('Failed to load group')
+        const data = await res.json()
+        setGroupInfo(data.group)
+      } catch (e: any) {
+        setGroupError(e.message)
+      }
+    }
+
+    loadGroup()
+  }, [selectedGroupId])
+
+  useEffect(() => {
+    if (!selectedGroupId) return
+    const params = new URLSearchParams(window.location.search)
+    params.set('group', selectedGroupId)
+    router.replace(`/predict/${year}?${params.toString()}`)
+  }, [selectedGroupId, year, router])
+
   async function handleSubmit() {
     if (!seasonData) return
     setSubmitStatus('saving')
@@ -493,6 +546,36 @@ export default function PredictClient({ year }: { year: number }) {
           </div>
         </div>
       </div>
+
+      {(groupsLoading || groups.length > 0 || groupInfo) && (
+        <div className="mb-5 rounded-2xl bg-white border border-gray-200 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-xs uppercase tracking-[0.3em] text-gray-400">Prediction pool</div>
+              <div className="text-sm font-semibold text-gray-900">{groupInfo?.name ?? 'Select a group'}</div>
+              {groupInfo?.code && <div className="text-xs text-gray-500 mt-1">Invite code: {groupInfo.code}</div>}
+            </div>
+            <div className="flex items-center gap-3">
+              <select
+                value={selectedGroupId}
+                onChange={(e) => setSelectedGroupId(e.target.value)}
+                className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+              >
+                <option value="">Choose a group</option>
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name} · {group.season.year}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {!groupsLoading && groups.length === 0 && !selectedGroupId && (
+            <div className="mt-3 text-xs text-gray-500">No groups found. Create or join one to compare your picks with friends.</div>
+          )}
+          {groupError && <div className="mt-3 text-xs text-red-600">{groupError}</div>}
+        </div>
+      )}
 
       {lockStatus && !isLocked && (
         <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center justify-between">

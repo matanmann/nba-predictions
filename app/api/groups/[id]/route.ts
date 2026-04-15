@@ -1,5 +1,41 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 
-export async function GET(request: NextRequest) {
-  return Response.json({ group: {} })
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { userId, error } = await requireAuth();
+  if (error) return error;
+
+  const { id } = await params;
+
+  // Check if user is a member of this group
+  const membership = await prisma.membership.findUnique({
+    where: { groupId_userId: { groupId: id, userId: userId! } },
+  });
+
+  if (!membership) {
+    return NextResponse.json({ error: "Not a member of this group" }, { status: 403 });
+  }
+
+  const group = await prisma.group.findUnique({
+    where: { id },
+    include: {
+      season: { select: { year: true } },
+      memberships: { select: { userId: true } },
+    },
+  });
+
+  if (!group) {
+    return NextResponse.json({ error: "Group not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    group: {
+      ...group,
+      memberCount: group.memberships.length,
+    },
+  });
 }

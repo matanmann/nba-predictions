@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: Promise<{ year: string }> }
 ) {
   const { year } = await params;
-  const season = await prisma.season.findUnique({
+  let season = await prisma.season.findUnique({
     where: { year: +year },
     include: {
       series: {
@@ -19,10 +19,25 @@ export async function GET(
   });
 
   if (!season) {
+    season = await prisma.season.findFirst({
+      where: { isActive: true },
+      include: {
+        series: {
+          include: { homeTeam: true, awayTeam: true },
+          orderBy: { label: "asc" },
+        },
+        snackQuestions: { orderBy: { order: "asc" } },
+        generalConfig: true,
+      },
+    });
+  }
+
+  if (!season) {
     return NextResponse.json({ error: "Season not found" }, { status: 404 });
   }
 
   return NextResponse.json({
+    year: season.year,
     series: season.series,
     snackQuestions: season.snackQuestions,
     generalConfig: season.generalConfig,

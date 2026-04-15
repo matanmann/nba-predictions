@@ -41,6 +41,15 @@ export default function GroupsClient() {
     }
   }
 
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      alert('Copied to clipboard!')
+    } catch {
+      alert('Copy failed, please copy manually')
+    }
+  }
+
   const createGroup = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!groupName.trim()) return
@@ -50,7 +59,7 @@ export default function GroupsClient() {
       const res = await fetch('/api/groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: groupName, seasonYear: 2026 }),
+        body: JSON.stringify({ name: groupName }),
       })
 
       if (res.ok) {
@@ -152,7 +161,7 @@ export default function GroupsClient() {
         ) : (
           groups.map(group => (
             <div key={group.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-gray-900">{group.name}</h3>
                   <p className="text-sm text-gray-500">
@@ -160,12 +169,28 @@ export default function GroupsClient() {
                   </p>
                   <p className="text-xs text-gray-400 mt-1">Code: {group.code}</p>
                 </div>
-                <button
-                  onClick={() => enterGroup(group.id)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                >
-                  Enter
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => enterGroup(group.id)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Enter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => copyText(`${window.location.origin}/groups/${group.id}`)}
+                    className="bg-gray-100 text-gray-900 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                  >
+                    Copy link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => copyText(group.code)}
+                    className="bg-gray-100 text-gray-900 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                  >
+                    Copy code
+                  </button>
+                </div>
               </div>
             </div>
           ))

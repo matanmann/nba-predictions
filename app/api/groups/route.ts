@@ -42,7 +42,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Name required" }, { status: 400 });
   }
 
-  const season = await prisma.season.findUnique({ where: { year: +seasonYear } });
+  let season = undefined;
+  if (seasonYear) {
+    season = await prisma.season.findUnique({ where: { year: +seasonYear } });
+  }
+  if (!season) {
+    season = await prisma.season.findFirst({
+      where: { isActive: true },
+      orderBy: { year: "desc" },
+    });
+  }
+  if (!season) {
+    season = await prisma.season.findFirst({ orderBy: { year: "desc" } });
+  }
+
   if (!season) {
     return NextResponse.json({ error: "Season not found" }, { status: 404 });
   }

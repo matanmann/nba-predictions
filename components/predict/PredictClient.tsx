@@ -30,12 +30,16 @@ const TEAM_LOGOS: Record<string, string> = {
   LAC: 'https://cdn.nba.com/logos/nba/1610612746/primary/L/logo.svg',
   MIN: 'https://cdn.nba.com/logos/nba/1610612750/primary/L/logo.svg',
   DAL: 'https://cdn.nba.com/logos/nba/1610612742/primary/L/logo.svg',
+  PHI: 'https://cdn.nba.com/logos/nba/1610612761/primary/L/logo.svg',
   PHX: 'https://cdn.nba.com/logos/nba/1610612756/primary/L/logo.svg',
   SAC: 'https://cdn.nba.com/logos/nba/1610612758/primary/L/logo.svg',
   NOP: 'https://cdn.nba.com/logos/nba/1610612740/primary/L/logo.svg',
   LAL: 'https://cdn.nba.com/logos/nba/1610612747/primary/L/logo.svg',
   POR: 'https://cdn.nba.com/logos/nba/1610612757/primary/L/logo.svg',
 }
+
+const DEFAULT_TEAM_LOGO = 'https://cdn.nba.com/logos/nba/1610612737/primary/L/logo.svg'
+const DEFAULT_PLAYER_IMAGE = 'https://cdn.nba.com/headshots/nba/latest/1040x760/fallback.png'
 
 // Player image mapping for key players (NBA headshot URLs)
 const PLAYER_IMAGES: Record<string, string> = {
@@ -720,7 +724,7 @@ function SeriesCard({ series, prediction, onUpdate, locked }: {
           return (
             <button key={team.id} onClick={() => !locked && onUpdate('winnerId', team.id)} disabled={locked}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all ${selected ? 'border-gray-900 bg-gray-900 text-white shadow-md' : 'border-gray-200 hover:border-gray-300 text-gray-700'} ${locked ? 'cursor-default' : 'cursor-pointer'}`}>
-              <img src={TEAM_LOGOS[team.abbr]} alt={`${team.abbr} logo`} className="w-6 h-6 rounded-full flex-shrink-0 bg-white p-0.5" />
+              <img src={TEAM_LOGOS[team.abbr] ?? DEFAULT_TEAM_LOGO} alt={`${team.abbr} logo`} className="w-6 h-6 rounded-full flex-shrink-0 bg-white p-0.5" />
               <div className="text-left">
                 <div className="text-sm font-medium">{team.abbr}</div>
                 <div className={`text-[11px] ${selected ? 'text-gray-300' : 'text-gray-400'}`}>#{team.seed}</div>
@@ -775,8 +779,12 @@ function PlayerDropdown({ players, value, onChange, disabled, placeholder }: {
       <button onClick={() => !disabled && setOpen(!open)} disabled={disabled}
         className={`w-full px-3 py-2 rounded-lg border text-left text-sm transition-all ${value ? 'border-gray-300 bg-white text-gray-900' : 'border-gray-200 bg-gray-50 text-gray-400'} ${disabled ? 'cursor-default' : 'cursor-pointer hover:border-gray-300'}`}>
         <div className="flex items-center gap-2">
-          {value && PLAYER_IMAGES[value] && (
-            <img src={PLAYER_IMAGES[value]} alt={value} className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+          {value && (
+            <img
+              src={PLAYER_IMAGES[value] ?? DEFAULT_PLAYER_IMAGE}
+              alt={value}
+              className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+            />
           )}
           <span className="truncate">{value || placeholder || 'Select...'}</span>
         </div>
@@ -792,9 +800,11 @@ function PlayerDropdown({ players, value, onChange, disabled, placeholder }: {
             {filtered.map(p => (
               <button key={p} onClick={() => { onChange(p); setOpen(false); setSearch('') }}
                 className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${value === p ? 'bg-gray-100 font-medium' : ''}`}>
-                {PLAYER_IMAGES[p] && (
-                  <img src={PLAYER_IMAGES[p]} alt={p} className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                )}
+                <img
+                  src={PLAYER_IMAGES[p] ?? DEFAULT_PLAYER_IMAGE}
+                  alt={p}
+                  className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                />
                 <span className="truncate">{p}</span>
               </button>
             ))}

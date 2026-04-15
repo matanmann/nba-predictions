@@ -19,23 +19,27 @@ async function main() {
   // Update seeds/teams each year based on actual standings.
   // Alternatively, use the /api/admin/init-season endpoint to auto-populate from BallDontLie.
   const teams = [
-    { id: "bos", name: "Boston Celtics",         abbr: "BOS", conference: "E", seed: 1, color: "#007A33" },
-    { id: "nyc", name: "New York Knicks",        abbr: "NYK", conference: "E", seed: 2, color: "#F58426" },
-    { id: "mil", name: "Milwaukee Bucks",        abbr: "MIL", conference: "E", seed: 3, color: "#00471B" },
+   // Eastern Conference - מעודכן ל-2026
+    { id: "det", name: "Detroit Pistons",        abbr: "DET", conference: "E", seed: 1, color: "#C8102E" },
+    { id: "bos", name: "Boston Celtics",         abbr: "BOS", conference: "E", seed: 2, color: "#007A33" },
+    { id: "nyc", name: "New York Knicks",        abbr: "NYK", conference: "E", seed: 3, color: "#F58426" },
     { id: "cle", name: "Cleveland Cavaliers",    abbr: "CLE", conference: "E", seed: 4, color: "#6F263D" },
-    { id: "ind", name: "Indiana Pacers",         abbr: "IND", conference: "E", seed: 5, color: "#002D62" },
-    { id: "orl", name: "Orlando Magic",          abbr: "ORL", conference: "E", seed: 6, color: "#0077C0" },
-    { id: "mia", name: "Miami Heat",             abbr: "MIA", conference: "E", seed: 7, color: "#98002E" },
-    { id: "phi", name: "Philadelphia 76ers",     abbr: "PHI", conference: "E", seed: 8, color: "#006BB6" },
+    { id: "tor", name: "Toronto Raptors",        abbr: "TOR", conference: "E", seed: 5, color: "#CE1141" },
+    { id: "atl", name: "Atlanta Hawks",          abbr: "ATL", conference: "E", seed: 6, color: "#E03A3E" },
+    { id: "phi", name: "Philadelphia 76ers",     abbr: "PHI", conference: "E", seed: 7, color: "#006BB6" },
+    { id: "mia", name: "Miami Heat",             abbr: "MIA", conference: "E", seed: 8, color: "#98002E" },
+
+    // Western Conference - מעודכן ל-2026
     { id: "okc", name: "Oklahoma City Thunder",  abbr: "OKC", conference: "W", seed: 1, color: "#007AC1" },
-    { id: "den", name: "Denver Nuggets",         abbr: "DEN", conference: "W", seed: 2, color: "#0E2240" },
-    { id: "min", name: "Minnesota Timberwolves", abbr: "MIN", conference: "W", seed: 3, color: "#0C2340" },
-    { id: "dal", name: "Dallas Mavericks",       abbr: "DAL", conference: "W", seed: 4, color: "#00538C" },
-    { id: "lac", name: "LA Clippers",            abbr: "LAC", conference: "W", seed: 5, color: "#C8102E" },
-    { id: "pho", name: "Phoenix Suns",           abbr: "PHX", conference: "W", seed: 6, color: "#1D1160" },
-    { id: "nop", name: "New Orleans Pelicans",   abbr: "NOP", conference: "W", seed: 7, color: "#0C2340" },
-    { id: "lal", name: "LA Lakers",              abbr: "LAL", conference: "W", seed: 8, color: "#552583" },
-  ];
+    { id: "sas", name: "San Antonio Spurs",      abbr: "SAS", conference: "W", seed: 2, color: "#C4CED4" },
+    { id: "den", name: "Denver Nuggets",         abbr: "DEN", conference: "W", seed: 3, color: "#0E2240" },
+    { id: "lal", name: "LA Lakers",              abbr: "LAL", conference: "W", seed: 4, color: "#552583" },
+    { id: "hou", name: "Houston Rockets",        abbr: "HOU", conference: "W", seed: 5, color: "#CE1141" },
+    { id: "min", name: "Minnesota Timberwolves", abbr: "MIN", conference: "W", seed: 6, color: "#0C2340" },
+    { id: "por", name: "Portland Trail Blazers", abbr: "POR", conference: "W", seed: 7, color: "#E03A3E" },
+    { id: "pho", name: "Phoenix Suns",           abbr: "PHX", conference: "W", seed: 8, color: "#1D1160" },
+];
+
 
   for (const t of teams) {
     await prisma.team.upsert({
@@ -47,14 +51,18 @@ async function main() {
 
   // ── Round 1 Series (1v8, 2v7, 3v6, 4v5) ──
   const series = [
-    { id: "2026-E1", round: 1, conference: "E", label: "E1", homeTeamId: "bos", awayTeamId: "phi" },
-    { id: "2026-E2", round: 1, conference: "E", label: "E2", homeTeamId: "nyc", awayTeamId: "mia" },
-    { id: "2026-E3", round: 1, conference: "E", label: "E3", homeTeamId: "mil", awayTeamId: "orl" },
-    { id: "2026-E4", round: 1, conference: "E", label: "E4", homeTeamId: "cle", awayTeamId: "ind" },
-    { id: "2026-W1", round: 1, conference: "W", label: "W1", homeTeamId: "okc", awayTeamId: "lal" },
-    { id: "2026-W2", round: 1, conference: "W", label: "W2", homeTeamId: "den", awayTeamId: "nop" },
-    { id: "2026-W3", round: 1, conference: "W", label: "W3", homeTeamId: "min", awayTeamId: "lac" },
-    { id: "2026-W4", round: 1, conference: "W", label: "W4", homeTeamId: "dal", awayTeamId: "pho" },
+     // Eastern Conference Round 1
+    { id: "2026-E1", round: 1, conference: "E", label: "E1", homeTeamId: "det", awayTeamId: "mia" }, // 1 vs 8
+    { id: "2026-E2", round: 1, conference: "E", label: "E2", homeTeamId: "bos", awayTeamId: "phi" }, // 2 vs 7
+    { id: "2026-E3", round: 1, conference: "E", label: "E3", homeTeamId: "nyc", awayTeamId: "atl" }, // 3 vs 6
+    { id: "2026-E4", round: 1, conference: "E", label: "E4", homeTeamId: "cle", awayTeamId: "tor" }, // 4 vs 5
+
+    // Western Conference Round 1
+    { id: "2026-W1", round: 1, conference: "W", label: "W1", homeTeamId: "okc", awayTeamId: "pho" }, // 1 vs 8
+    { id: "2026-W2", round: 1, conference: "W", label: "W2", homeTeamId: "sas", awayTeamId: "por" }, // 2 vs 7
+    { id: "2026-W3", round: 1, conference: "W", label: "W3", homeTeamId: "den", awayTeamId: "min" }, // 3 vs 6
+    { id: "2026-W4", round: 1, conference: "W", label: "W4", homeTeamId: "lal", awayTeamId: "hou" }, // 4 vs 5
+
   ];
 
   for (const s of series) {

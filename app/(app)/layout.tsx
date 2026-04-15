@@ -24,6 +24,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             >
               Dashboard
             </Link>
+            <Link
+              href="/groups"
+              className="text-sm text-gray-500 hover:text-gray-900"
+            >
+              Groups
+            </Link>
           </div>
           <UserButton signInUrl="/sign-in" />
         </nav>

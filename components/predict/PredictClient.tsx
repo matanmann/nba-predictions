@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useLockStatus } from '@/hooks/useLockStatus'
 import { useRouter } from 'next/navigation'
+import { savePredictionsToLocalStorage, loadPredictionsFromLocalStorage, clearPredictionsFromLocalStorage } from '@/lib/lock'
 
 interface Team { id: string; name: string; abbr: string; seed: number; conference: string; color: string }
 interface Series { id: string; round: number; conference: string; label: string; homeTeam: Team; awayTeam: Team }
@@ -440,6 +441,16 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
   useEffect(() => {
     async function load() {
       try {
+        // Try to load from localStorage first
+        const cachedPreds = loadPredictionsFromLocalStorage(year);
+        if (cachedPreds) {
+          setBracketPreds(cachedPreds.bracketPreds || {});
+          setLeaderPreds(cachedPreds.leaderPreds || {});
+          setGeneralAnswers(cachedPreds.generalAnswers || {});
+          setSnackAnswers(cachedPreds.snackAnswers || {});
+          setMvpPreds(cachedPreds.mvpPreds || { eastMvp: '', westMvp: '', finalsMvp: '' });
+        }
+
         const res = await fetch(`/api/seasons/${year}`)
         if (!res.ok) throw new Error('Failed to load season')
         setSeasonData(await res.json())
@@ -458,6 +469,7 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
             const sa: Record<number, boolean> = {}
             for (const a of p.snackAnswers ?? []) sa[a.questionId] = a.answer
             setSnackAnswers(sa)
+            if (p.mvpPredictions) setMvpPreds(p.mvpPredictions)
           }
         }
       } catch (e: any) { setError(e.message) } finally { setLoading(false) }
@@ -511,6 +523,12 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
     router.replace(`/predict/${year}?${params.toString()}`)
   }, [selectedGroupId, year, router])
 
+  // Save bracket predictions to localStorage
+  useEffect(() => {
+    const predictions = { bracketPreds, leaderPreds, generalAnswers, snackAnswers, mvpPreds }
+    savePredictionsToLocalStorage(year, predictions)
+  }, [year, bracketPreds, leaderPreds, generalAnswers, snackAnswers, mvpPreds])
+
   async function handleSubmit() {
     if (!seasonData) return
     setSubmitStatus('saving')
@@ -525,6 +543,7 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
       })
       if (res.status === 423) { setSubmitStatus('error'); setError('Predictions are locked!'); return }
       if (!res.ok) throw new Error('Submit failed')
+      clearPredictionsFromLocalStorage(year)
       setSubmitStatus('saved'); setTimeout(() => setSubmitStatus('idle'), 2500)
     } catch { setSubmitStatus('error'); setTimeout(() => setSubmitStatus('idle'), 3000) }
   }

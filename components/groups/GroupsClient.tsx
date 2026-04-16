@@ -106,8 +106,14 @@ export default function GroupsClient() {
         setJoinNickname('')
         setShowJoin(false)
       } else {
-        const error = await res.json()
-        alert(error.error || 'Failed to join group')
+        let errorMessage = 'Failed to join group'
+        try {
+          const error = await res.json()
+          errorMessage = error.error || errorMessage
+        } catch {
+          errorMessage = `${res.status} ${res.statusText}`
+        }
+        alert(errorMessage)
       }
     } catch (error) {
       console.error('Failed to join group:', error)

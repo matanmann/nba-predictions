@@ -108,8 +108,13 @@ export default function GroupsClient() {
       } else {
         let errorMessage = 'Failed to join group'
         try {
-          const error = await res.json()
-          errorMessage = error.error || errorMessage
+          const text = await res.text()
+          try {
+            const error = JSON.parse(text)
+            errorMessage = error.error || text || errorMessage
+          } catch {
+            errorMessage = text || `${res.status} ${res.statusText}`
+          }
         } catch {
           errorMessage = `${res.status} ${res.statusText}`
         }

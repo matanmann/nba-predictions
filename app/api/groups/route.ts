@@ -70,13 +70,18 @@ export async function POST(req: NextRequest) {
       code = generateCode();
     } while (await prisma.group.findUnique({ where: { code } }));
 
-    const group = await prisma.group.create({
-      data: {
-        name: name.trim(),
-        code,
-        seasonId: season.id,
-        createdBy: userId!,
-        memberships: { create: { userId: userId!, role: "admin", nickname: nickname.trim() } },
+const membershipCreateData: any = { userId: userId!, role: "admin" };
+  if (nickname?.trim()) {
+    membershipCreateData.nickname = nickname.trim();
+  }
+
+  const group = await prisma.group.create({
+    data: {
+      name: name.trim(),
+      code,
+      seasonId: season.id,
+      createdBy: userId!,
+      memberships: { create: membershipCreateData },
       },
     });
 

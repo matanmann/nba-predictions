@@ -29,9 +29,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ group, alreadyMember: true });
     }
 
-    await prisma.membership.create({
-      data: { groupId: group.id, userId: userId!, nickname: nickname.trim() },
-    });
+    const membershipData: any = { groupId: group.id, userId: userId! };
+    if (nickname?.trim()) {
+      membershipData.nickname = nickname.trim();
+    }
+
+    try {
+      await prisma.membership.create({ data: membershipData });
+    } catch (e: any) {
+      if (
+        e?.message?.toString().includes('column "nickname"') ||
+        e?.message?.toString().includes('relation "Membership" does not exist') ||
+        e?.code === 'P1012'
+      ) {
+        delete membershipData.nickname;
+        await prisma.membership.create({ data: membershipData });
+      } else {
+        throw e;
+      }
+    }
 
     await prisma.feedEvent.create({
       data: {

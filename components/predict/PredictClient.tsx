@@ -36,6 +36,8 @@ const TEAM_LOGOS: Record<string, string> = {
   NOP: 'https://cdn.nba.com/logos/nba/1610612740/primary/L/logo.svg',
   LAL: 'https://cdn.nba.com/logos/nba/1610612747/primary/L/logo.svg',
   POR: 'https://cdn.nba.com/logos/nba/1610612757/primary/L/logo.svg',
+  TOR: 'https://cdn.nba.com/logos/nba/1610612761/primary/L/logo.svg',
+  SAS: 'https://cdn.nba.com/logos/nba/1610612764/primary/L/logo.svg',
 }
 
 const DEFAULT_TEAM_LOGO = 'https://cdn.nba.com/logos/nba/1610612737/primary/L/logo.svg'

@@ -90,10 +90,10 @@ async function main() {
   // ── Yes/No snack questions ──
   const snackQuestions = [
     "Will there be a game with over 250 total points?",
-    "Will a #1 seed be eliminated in Round 1?",
-    "Will the Finals go to Game 7?",
-    "Will any player average 40+ PPG in a series?",
-    "Will a Finals game go to overtime?",
+    "Will any player make 8+ three-pointers in a single game?",
+    "Will a player record 15+ assists in a game?",
+    "Will any player average 35+ PPG in a series?",
+    "Will Deni Avdija average 25+ PPG in any series?",
   ];
 
   for (let i = 0; i < snackQuestions.length; i++) {

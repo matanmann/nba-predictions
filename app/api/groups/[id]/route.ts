@@ -24,7 +24,13 @@ export async function GET(
     where: { id },
     include: {
       season: { select: { year: true } },
-      memberships: { select: { userId: true } },
+      memberships: {
+        select: {
+          userId: true,
+          nickname: true,
+          user: { select: { email: true, name: true } },
+        },
+      },
     },
   });
 
@@ -36,6 +42,11 @@ export async function GET(
     group: {
       ...group,
       memberCount: group.memberships.length,
+      members: group.memberships.map((m) => ({
+        userId: m.userId,
+        nickname: m.nickname || m.user.name || 'Unknown',
+        email: m.user.email,
+      })),
     },
   });
 }

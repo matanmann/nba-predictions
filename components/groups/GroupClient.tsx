@@ -10,6 +10,11 @@ interface Group {
   season: { year: number }
   memberCount: number
   createdBy: string
+  members?: Array<{
+    userId: string
+    nickname: string
+    email: string
+  }>
 }
 
 interface LeaderboardEntry {
@@ -156,6 +161,29 @@ export default function GroupClient({ groupId }: { groupId: string }) {
                 <span className="font-mono font-medium">{group.code}</span>
               </div>
             </div>
+          </div>
+
+          {/* Group Members */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Members</h3>
+
+            {group.members && group.members.length > 0 ? (
+              <div className="space-y-3">
+                {group.members.map((member) => (
+                  <div
+                    key={member.userId}
+                    className="flex flex-col gap-1 p-3 bg-gray-50 rounded-lg border border-gray-100"
+                  >
+                    <div className="font-medium text-gray-900">{member.nickname}</div>
+                    <div className="text-xs text-gray-500">{member.email}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4 text-gray-500">
+                <p>No members in this group</p>
+              </div>
+            )}
           </div>
         </div>
       )}

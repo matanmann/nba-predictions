@@ -3,9 +3,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { useState } from "react";
+import { useEnsureUser } from "@/hooks/useEnsureUser";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
+  useEnsureUser();
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -23,12 +25,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               className="text-sm text-gray-500 hover:text-gray-900"
             >
               Dashboard
-            </Link>
-            <Link
-              href="/groups"
-              className="text-sm text-gray-500 hover:text-gray-900"
-            >
-              Groups
             </Link>
           </div>
           <UserButton signInUrl="/sign-in" />

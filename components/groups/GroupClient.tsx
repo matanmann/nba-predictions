@@ -15,6 +15,7 @@ interface Group {
     userId: string
     nickname: string
     email: string
+    submitted: boolean
   }>
 }
 
@@ -179,7 +180,18 @@ export default function GroupClient({ groupId }: { groupId: string }) {
                     key={member.userId}
                     className="flex flex-col gap-1 p-3 bg-gray-50 rounded-lg border border-gray-100"
                   >
-                    <div className="font-medium text-gray-900">{member.nickname}</div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-medium text-gray-900">{member.nickname}</div>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          member.submitted
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-200 text-gray-600'
+                        }`}
+                      >
+                        {member.submitted ? '✓ Submitted' : 'Not submitted'}
+                      </span>
+                    </div>
                     <div className="text-xs text-gray-500">{member.email}</div>
                   </div>
                 ))}

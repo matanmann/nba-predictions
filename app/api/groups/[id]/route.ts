@@ -39,12 +39,16 @@ export async function GET(
   }
 
   const memberIds = group.memberships.map((m) => m.userId);
-  const submittedCount = await prisma.prediction.count({
+  const submittedPredictions = await prisma.prediction.findMany({
     where: {
       seasonId: group.seasonId,
       userId: { in: memberIds },
     },
+    select: { userId: true },
+    distinct: ["userId"],
   });
+  const submittedUserIds = new Set(submittedPredictions.map((p) => p.userId));
+  const submittedCount = submittedUserIds.size;
 
   return NextResponse.json({
     group: {
@@ -55,6 +59,7 @@ export async function GET(
         userId: m.userId,
         nickname: m.nickname || m.user.name || 'Unknown',
         email: m.user.email,
+        submitted: submittedUserIds.has(m.userId),
       })),
     },
   });

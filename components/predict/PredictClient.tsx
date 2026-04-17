@@ -344,7 +344,7 @@ const PLAYOFF_PLAYERS: Record<string, string[]> = {
   SAS: ['Victor Wembanyama','Chris Paul','Devin Vassell','Jeremy Sochan','Harrison Barnes','Stephon Castle','Keldon Johnson','Zach Collins','Malaki Branham','Blake Wesley'],
   DEN: ['Nikola Jokic','Jamal Murray','Michael Porter Jr.','Aaron Gordon','Christian Braun','Russell Westbrook','Peyton Watson','Julian Strawther','Dario Saric','Zeke Nnaji','DeAndre Jordan','Hunter Tyson','Braxton Key'],
   LAL: ['Luka Doncic','LeBron James','Austin Reaves','D\'Angelo Russell','Rui Hachimura','Jarred Vanderbilt','Gabe Vincent','Christian Wood','Cam Reddish','Max Christie','Jalen Hood-Schifino','Jaxson Hayes','Dorian Finney-Smith'], // לוקה בפנים, AD יצא
-  HOU: ['Jalen Green','Alperen Sengun','Fred VanVleet','Jabari Smith Jr.','Dillon Brooks','Amen Thompson','Tari Eason','Steven Adams','Cam Whitmore','Jeff Green','Reed Sheppard','Nate Williams','Jermaine Samuels'],
+  HOU: ['Jalen Green','Kevin Durant','Alperen Sengun','Fred VanVleet','Jabari Smith Jr.','Dillon Brooks','Amen Thompson','Tari Eason','Steven Adams','Cam Whitmore','Jeff Green','Reed Sheppard','Nate Williams','Jermaine Samuels'],
   MIN: ['Anthony Edwards','Julius Randle','Rudy Gobert','Jaden McDaniels','Mike Conley','Naz Reid','Nickeil Alexander-Walker','Joe Ingles','Josh Minott','Rob Dillingham','Leonard Miller','Wendell Moore Jr.','Troy Brown Jr.'],
   POR: ['Deni Avdija','Jrue Holiday','Jerami Grant','Deandre Ayton','Shaedon Sharpe','Toumani Camara','Donovan Clingan','Robert Williams III','Scoot Henderson','Kris Murray','Dalano Banton','Matisse Thybulle','Justin Minaya'], // הולידיי בפנים, סיימונס עזב
   PHX: ['Kevin Durant','Devin Booker','Bradley Beal','Jusuf Nurkic','Grayson Allen','Royce O\'Neale','Eric Gordon','Josh Okogie','Drew Eubanks','Bol Bol','Nassir Little','Damion Lee','Ish Wainright'],
@@ -469,7 +469,9 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
             const sa: Record<number, boolean> = {}
             for (const a of p.snackAnswers ?? []) sa[a.questionId] = a.answer
             setSnackAnswers(sa)
-            if (p.mvpPredictions) setMvpPreds(p.mvpPredictions)
+            const mvp: Record<string, string> = {}
+            for (const m of p.mvpPredictions ?? []) mvp[m.role] = m.playerName
+            setMvpPreds(mvp)
           }
         }
       } catch (e: any) { setError(e.message) } finally { setLoading(false) }
@@ -537,7 +539,9 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           seriesPredictions: Object.entries(bracketPreds).map(([seriesId, pred]) => ({ seriesId, ...pred })),
-          leaderPredictions: { ...leaderPreds, ...mvpPreds }, generalAnswers,
+          leaderPredictions: leaderPreds,
+          mvpPredictions: mvpPreds,
+          generalAnswers,
           snackAnswers: Object.entries(snackAnswers).map(([qId, answer]) => ({ questionId: +qId, answer })),
         }),
       })

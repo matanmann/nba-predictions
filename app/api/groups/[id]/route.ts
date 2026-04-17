@@ -38,10 +38,19 @@ export async function GET(
     return NextResponse.json({ error: "Group not found" }, { status: 404 });
   }
 
+  const memberIds = group.memberships.map((m) => m.userId);
+  const submittedCount = await prisma.prediction.count({
+    where: {
+      seasonId: group.seasonId,
+      userId: { in: memberIds },
+    },
+  });
+
   return NextResponse.json({
     group: {
       ...group,
       memberCount: group.memberships.length,
+      submittedCount,
       members: group.memberships.map((m) => ({
         userId: m.userId,
         nickname: m.nickname || m.user.name || 'Unknown',

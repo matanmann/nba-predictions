@@ -7,8 +7,9 @@ export interface LockConfig {
 const LOCK_CONFIGS: LockConfig[] = [
   {
     year: 2026,
-    firstTipoff: new Date("2026-04-18T17:00:00Z"),
-    lockMinutesBefore: 5,
+    // 18:00Z is 21:00 in Israel during DST, so predictions lock at 9pm IL
+    firstTipoff: new Date("2026-04-18T18:00:00Z"),
+    lockMinutesBefore: 0,
   },
 ];
 

@@ -9,6 +9,7 @@ interface Group {
   code: string
   season: { year: number }
   memberCount: number
+  submittedCount: number
   createdBy: string
   members?: Array<{
     userId: string
@@ -155,6 +156,10 @@ export default function GroupClient({ groupId }: { groupId: string }) {
               <div className="flex justify-between">
                 <span className="text-gray-500">Members:</span>
                 <span className="font-medium">{group.memberCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Submitted:</span>
+                <span className="font-medium">{group.submittedCount}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Invite Code:</span>

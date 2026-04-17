@@ -87,6 +87,7 @@ model Prediction {
 
   seriesPredictions SeriesPrediction[]
   leaderPredictions LeaderPrediction[]
+  mvpPredictions MvpPrediction[]
   generalPrediction GeneralPrediction?
   snackAnswers      SnackAnswer[]
 
@@ -122,6 +123,17 @@ model LeaderPrediction {
   prediction Prediction @relation(fields: [predictionId], references: [id])
 
   @@unique([predictionId, category])
+}
+
+model MvpPrediction {
+  id           Int    @id @default(autoincrement())
+  predictionId Int
+  role         String   // "eastMvp", "westMvp", "finalsMvp"
+  playerName   String
+
+  prediction Prediction @relation(fields: [predictionId], references: [id])
+
+  @@unique([predictionId, role])
 }
 
 model GeneralPrediction {

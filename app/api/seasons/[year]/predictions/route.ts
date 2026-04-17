@@ -16,6 +16,11 @@ const submitSchema = z.object({
     })
   ),
   leaderPredictions: z.record(z.enum(LEADER_CATEGORIES), z.string().min(1).max(100)),
+  mvpPredictions: z.object({
+    eastMvp: z.string().min(1).max(100),
+    westMvp: z.string().min(1).max(100),
+    finalsMvp: z.string().min(1).max(100),
+  }),
   generalAnswers: z.record(z.string(), z.number().int().min(0).max(999)),
   snackAnswers: z.array(
     z.object({
@@ -41,6 +46,7 @@ export async function GET(
     include: {
       seriesPredictions: true,
       leaderPredictions: true,
+      mvpPredictions: true,
       generalPrediction: true,
       snackAnswers: true,
     },
@@ -100,19 +106,33 @@ export async function POST(
         })
       ),
     }),
+    prisma.mvpPrediction.deleteMany({ where: { predictionId: prediction.id } }),
+    prisma.mvpPrediction.createMany({
+      data: Object.entries(body.mvpPredictions).map(([role, playerName]) => ({
+        predictionId: prediction.id,
+        role,
+        playerName,
+      })),
+    }),
     prisma.generalPrediction.upsert({
       where: { predictionId: prediction.id },
-      create: { predictionId: prediction.id, answers: body.generalAnswers },
-      update: { answers: body.generalAnswers },
+      create: {
+        predictionId: prediction.id,
+        answers: body.generalAnswers,
+      },
+      update: {
+        answers: body.generalAnswers,
+      },
     }),
     prisma.snackAnswer.deleteMany({ where: { predictionId: prediction.id } }),
     prisma.snackAnswer.createMany({
-      data: body.snackAnswers.map((a) => ({
+      data: body.snackAnswers.map((answer) => ({
         predictionId: prediction.id,
-        ...a,
+        questionId: answer.questionId,
+        answer: answer.answer,
       })),
     }),
-  ]);
+  ])
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ success: true });
 }

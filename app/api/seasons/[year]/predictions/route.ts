@@ -5,6 +5,14 @@ import { isLocked } from "@/lib/lock";
 import { z } from "zod";
 
 const LEADER_CATEGORIES = ["Points", "Assists", "Rebounds", "Blocks", "Steals"] as const;
+const MVP_ROLE_TO_CATEGORY = {
+  eastMvp: "__mvp_east",
+  westMvp: "__mvp_west",
+  finalsMvp: "__mvp_finals",
+} as const;
+const MVP_CATEGORY_TO_ROLE = Object.fromEntries(
+  Object.entries(MVP_ROLE_TO_CATEGORY).map(([role, category]) => [category, role])
+) as Record<string, keyof typeof MVP_ROLE_TO_CATEGORY>;
 
 const submitSchema = z.object({
   seriesPredictions: z.array(
@@ -41,16 +49,41 @@ export async function GET(
   const season = await prisma.season.findUnique({ where: { year: +year } });
   if (!season) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const prediction = await prisma.prediction.findUnique({
+  const predictionRecord = await prisma.prediction.findUnique({
     where: { userId_seasonId: { userId: userId!, seasonId: season.id } },
     include: {
       seriesPredictions: true,
       leaderPredictions: true,
-      mvpPredictions: true,
       generalPrediction: true,
       snackAnswers: true,
     },
   });
+
+  if (!predictionRecord) {
+    return NextResponse.json({ prediction: null });
+  }
+
+  const leaderPredictions = [];
+  const mvpPredictions = [];
+
+  for (const prediction of predictionRecord.leaderPredictions) {
+    const role = MVP_CATEGORY_TO_ROLE[prediction.category];
+    if (role) {
+      mvpPredictions.push({
+        role,
+        playerName: prediction.playerName,
+      });
+      continue;
+    }
+
+    leaderPredictions.push(prediction);
+  }
+
+  const prediction = {
+    ...predictionRecord,
+    leaderPredictions,
+    mvpPredictions,
+  };
 
   return NextResponse.json({ prediction });
 }
@@ -77,6 +110,16 @@ export async function POST(
     );
   }
   const body = parseResult.data;
+  const storedLeaderPredictions = [
+    ...Object.entries(body.leaderPredictions).map(([category, playerName]) => ({
+      category,
+      playerName,
+    })),
+    ...Object.entries(body.mvpPredictions).map(([role, playerName]) => ({
+      category: MVP_ROLE_TO_CATEGORY[role as keyof typeof MVP_ROLE_TO_CATEGORY],
+      playerName,
+    })),
+  ];
 
   const season = await prisma.season.findUnique({ where: { year: y } });
   if (!season) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -98,19 +141,9 @@ export async function POST(
     }),
     prisma.leaderPrediction.deleteMany({ where: { predictionId: prediction.id } }),
     prisma.leaderPrediction.createMany({
-      data: Object.entries(body.leaderPredictions).map(
-        ([category, playerName]) => ({
-          predictionId: prediction.id,
-          category,
-          playerName,
-        })
-      ),
-    }),
-    prisma.mvpPrediction.deleteMany({ where: { predictionId: prediction.id } }),
-    prisma.mvpPrediction.createMany({
-      data: Object.entries(body.mvpPredictions).map(([role, playerName]) => ({
+      data: storedLeaderPredictions.map(({ category, playerName }) => ({
         predictionId: prediction.id,
-        role,
+        category,
         playerName,
       })),
     }),

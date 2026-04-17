@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+function dedupeSnackQuestions<T extends { question: string }>(questions: T[]): T[] {
+  const seen = new Set<string>();
+  return questions.filter((q) => {
+    const key = q.question.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ year: string }> }
@@ -36,10 +46,12 @@ export async function GET(
     return NextResponse.json({ error: "Season not found" }, { status: 404 });
   }
 
+  const snackQuestions = dedupeSnackQuestions(season.snackQuestions);
+
   return NextResponse.json({
     year: season.year,
     series: season.series,
-    snackQuestions: season.snackQuestions,
+    snackQuestions,
     generalConfig: season.generalConfig,
   });
 }

@@ -13,6 +13,16 @@ import {
   scoreGeneral,
 } from "./scoring";
 
+const FUTURE_SERIES_BLUEPRINTS = [
+  { idSuffix: "E_R2A", round: 2, conference: "E", label: "E_R2A", placeholderSeed: 0, placeholderConference: "east" },
+  { idSuffix: "E_R2B", round: 2, conference: "E", label: "E_R2B", placeholderSeed: 1, placeholderConference: "east" },
+  { idSuffix: "ECF", round: 3, conference: "E", label: "ECF", placeholderSeed: 0, placeholderConference: "east" },
+  { idSuffix: "W_R2A", round: 2, conference: "W", label: "W_R2A", placeholderSeed: 0, placeholderConference: "west" },
+  { idSuffix: "W_R2B", round: 2, conference: "W", label: "W_R2B", placeholderSeed: 1, placeholderConference: "west" },
+  { idSuffix: "WCF", round: 3, conference: "W", label: "WCF", placeholderSeed: 0, placeholderConference: "west" },
+  { idSuffix: "Finals", round: 4, conference: "Finals", label: "Finals", placeholderSeed: 0, placeholderConference: "east" },
+] as const;
+
 // ─── 1. Initialize bracket from standings ─────────────────────────────
 
 export async function initSeasonFromAPI(year: number) {
@@ -88,8 +98,27 @@ export async function initSeasonFromAPI(year: number) {
     }
   }
 
-  console.log(`[init] Season ${year} bracket built: 16 teams, 8 series`);
-  return { teams: east.length + west.length, series: 8 };
+  for (const blueprint of FUTURE_SERIES_BLUEPRINTS) {
+    const placeholderPool = blueprint.placeholderConference === "east" ? east : west;
+    const placeholderTeam = placeholderPool[blueprint.placeholderSeed];
+
+    await prisma.series.upsert({
+      where: { id: `${year}-${blueprint.idSuffix}` },
+      update: {},
+      create: {
+        id: `${year}-${blueprint.idSuffix}`,
+        seasonId: season.id,
+        round: blueprint.round,
+        conference: blueprint.conference,
+        label: blueprint.label,
+        homeTeamId: String(placeholderTeam.team.id),
+        awayTeamId: String(placeholderTeam.team.id),
+      },
+    });
+  }
+
+  console.log(`[init] Season ${year} bracket built: 16 teams, 15 series`);
+  return { teams: east.length + west.length, series: 15 };
 }
 
 // ─── 2. Main sync (every 5 min via cron) ─────────────────────────────
@@ -230,48 +259,39 @@ async function advanceBracket(
   const series = await prisma.series.findUnique({ where: { id: completedSeriesId } });
   if (!series || series.round >= 4) return;
 
-  const nextRound = series.round + 1;
-
-  // Map: completed series label → next series label
-  const slotMap: Record<string, string> = {
-    E1: "E_R2A", E4: "E_R2A",
-    E2: "E_R2B", E3: "E_R2B",
-    W1: "W_R2A", W4: "W_R2A",
-    W2: "W_R2B", W3: "W_R2B",
-    E_R2A: "ECF", E_R2B: "ECF",
-    W_R2A: "WCF", W_R2B: "WCF",
-    ECF: "Finals", WCF: "Finals",
+  const slotMap: Record<string, { nextLabel: string; slot: "homeTeamId" | "awayTeamId"; round: number; conference: string }> = {
+    E1: { nextLabel: "E_R2A", slot: "homeTeamId", round: 2, conference: "E" },
+    E4: { nextLabel: "E_R2A", slot: "awayTeamId", round: 2, conference: "E" },
+    E2: { nextLabel: "E_R2B", slot: "homeTeamId", round: 2, conference: "E" },
+    E3: { nextLabel: "E_R2B", slot: "awayTeamId", round: 2, conference: "E" },
+    W1: { nextLabel: "W_R2A", slot: "homeTeamId", round: 2, conference: "W" },
+    W4: { nextLabel: "W_R2A", slot: "awayTeamId", round: 2, conference: "W" },
+    W2: { nextLabel: "W_R2B", slot: "homeTeamId", round: 2, conference: "W" },
+    W3: { nextLabel: "W_R2B", slot: "awayTeamId", round: 2, conference: "W" },
+    E_R2A: { nextLabel: "ECF", slot: "homeTeamId", round: 3, conference: "E" },
+    E_R2B: { nextLabel: "ECF", slot: "awayTeamId", round: 3, conference: "E" },
+    W_R2A: { nextLabel: "WCF", slot: "homeTeamId", round: 3, conference: "W" },
+    W_R2B: { nextLabel: "WCF", slot: "awayTeamId", round: 3, conference: "W" },
+    ECF: { nextLabel: "Finals", slot: "homeTeamId", round: 4, conference: "Finals" },
+    WCF: { nextLabel: "Finals", slot: "awayTeamId", round: 4, conference: "Finals" },
   };
 
-  const nextLabel = slotMap[series.label];
-  if (!nextLabel) return;
+  const nextSeries = slotMap[series.label];
+  if (!nextSeries) return;
 
-  const nextSeriesId = `${year}-${nextLabel}`;
-  const nextConference = nextLabel === "Finals" ? "Finals" : series.conference;
-
-  const existing = await prisma.series.findUnique({ where: { id: nextSeriesId } });
-
-  if (!existing) {
-    // First team into next-round series — use winnerId for both slots as placeholder
-    await prisma.series.create({
-      data: {
-        id: nextSeriesId,
-        seasonId,
-        round: nextRound,
-        conference: nextConference,
-        label: nextLabel,
-        homeTeamId: winnerId,
-        awayTeamId: winnerId, // placeholder until second team arrives
-      },
-    });
-  } else if (existing.homeTeamId === existing.awayTeamId) {
-    // Second team arrives — fill the away slot
-    await prisma.series.update({
-      where: { id: nextSeriesId },
-      data: { awayTeamId: winnerId },
-    });
-  }
-  // If both slots are already different teams, do nothing (shouldn't happen)
+  await prisma.series.upsert({
+    where: { id: `${year}-${nextSeries.nextLabel}` },
+    update: { [nextSeries.slot]: winnerId },
+    create: {
+      id: `${year}-${nextSeries.nextLabel}`,
+      seasonId,
+      round: nextSeries.round,
+      conference: nextSeries.conference,
+      label: nextSeries.nextLabel,
+      homeTeamId: winnerId,
+      awayTeamId: winnerId,
+    },
+  });
 }
 
 // ─── 4. Score recalculation ──────────────────────────────────────────

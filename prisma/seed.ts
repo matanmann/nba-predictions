@@ -63,6 +63,15 @@ async function main() {
     { id: "2026-W3", round: 1, conference: "W", label: "W3", homeTeamId: "den", awayTeamId: "min" }, // 3 vs 6
     { id: "2026-W4", round: 1, conference: "W", label: "W4", homeTeamId: "lal", awayTeamId: "hou" }, // 4 vs 5
 
+    // Placeholder future rounds so prediction submissions can reference stable series IDs.
+    { id: "2026-E_R2A", round: 2, conference: "E", label: "E_R2A", homeTeamId: "det", awayTeamId: "det" },
+    { id: "2026-E_R2B", round: 2, conference: "E", label: "E_R2B", homeTeamId: "bos", awayTeamId: "bos" },
+    { id: "2026-ECF", round: 3, conference: "E", label: "ECF", homeTeamId: "det", awayTeamId: "det" },
+    { id: "2026-W_R2A", round: 2, conference: "W", label: "W_R2A", homeTeamId: "okc", awayTeamId: "okc" },
+    { id: "2026-W_R2B", round: 2, conference: "W", label: "W_R2B", homeTeamId: "sas", awayTeamId: "sas" },
+    { id: "2026-WCF", round: 3, conference: "W", label: "WCF", homeTeamId: "okc", awayTeamId: "okc" },
+    { id: "2026-Finals", round: 4, conference: "Finals", label: "Finals", homeTeamId: "det", awayTeamId: "det" },
+
   ];
 
   for (const s of series) {

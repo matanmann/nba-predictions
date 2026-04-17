@@ -403,40 +403,45 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
   const [groupError, setGroupError] = useState<string | null>(null)
   const lockStatus = useLockStatus(year)
 
+  const roundOneSeries = useMemo(
+    () => seasonData?.series.filter((series) => series.round === 1) ?? [],
+    [seasonData]
+  )
+
   const fullBracket = useMemo(() => {
-    if (!seasonData) return { east: [], west: [], finals: [] }
-    return buildFullBracket(seasonData.series, bracketPreds)
-  }, [seasonData, bracketPreds])
+    if (!roundOneSeries.length) return { east: [], west: [], finals: [] }
+    return buildFullBracket(roundOneSeries, bracketPreds)
+  }, [roundOneSeries, bracketPreds])
 
   const allPlayers = useMemo(() => {
     const players: string[] = []; const seen = new Set<string>()
-    if (!seasonData) return players
-    for (const s of seasonData.series) {
+    if (!roundOneSeries.length) return players
+    for (const s of roundOneSeries) {
       for (const team of [s.homeTeam, s.awayTeam]) {
         if (!seen.has(team.abbr)) { seen.add(team.abbr); players.push(...(PLAYOFF_PLAYERS[team.abbr] ?? [])) }
       }
     }
     return players.sort()
-  }, [seasonData])
+  }, [roundOneSeries])
 
   // Players from East/West teams for MVP dropdowns
   const eastPlayers = useMemo(() => {
-    if (!seasonData) return []
+    if (!roundOneSeries.length) return []
     const p: string[] = []; const seen = new Set<string>()
-    for (const s of seasonData.series.filter(s => s.conference === 'E')) {
+    for (const s of roundOneSeries.filter(s => s.conference === 'E')) {
       for (const t of [s.homeTeam, s.awayTeam]) { if (!seen.has(t.abbr)) { seen.add(t.abbr); p.push(...(PLAYOFF_PLAYERS[t.abbr] ?? [])) } }
     }
     return p.sort()
-  }, [seasonData])
+  }, [roundOneSeries])
 
   const westPlayers = useMemo(() => {
-    if (!seasonData) return []
+    if (!roundOneSeries.length) return []
     const p: string[] = []; const seen = new Set<string>()
-    for (const s of seasonData.series.filter(s => s.conference === 'W')) {
+    for (const s of roundOneSeries.filter(s => s.conference === 'W')) {
       for (const t of [s.homeTeam, s.awayTeam]) { if (!seen.has(t.abbr)) { seen.add(t.abbr); p.push(...(PLAYOFF_PLAYERS[t.abbr] ?? [])) } }
     }
     return p.sort()
-  }, [seasonData])
+  }, [roundOneSeries])
 
   useEffect(() => {
     async function load() {

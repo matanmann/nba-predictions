@@ -617,7 +617,7 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
 
       {lockStatus && !isLocked && (
         <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center justify-between">
-          <span className="text-xs font-medium text-amber-700">Predictions lock at 08:00 PM</span>
+          <span className="text-xs font-medium text-amber-700">Predictions lock at 09:00 PM</span>
           <span className="text-sm font-mono font-semibold text-amber-800">{formatCountdown(lockStatus.secondsUntilLock)}</span>
         </div>
       )}

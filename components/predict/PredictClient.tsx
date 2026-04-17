@@ -60,7 +60,7 @@ const PLAYER_IMAGES: Record<string, string> = {
   'Ja Morant': 'https://cdn.nba.com/headshots/nba/latest/1040x760/1629630.png',
   'Zion Williamson': 'https://cdn.nba.com/headshots/nba/latest/1040x760/1629627.png',
   'Kawhi Leonard': 'https://cdn.nba.com/headshots/nba/latest/1040x760/202695.png',
-  'Deni Avdija': 'https://cdn.nba.com/headshots/nba/latest/1040x760/1630163.png',
+  'Deni Avdija': 'https://cdn.nba.com/headshots/nba/latest/1040x760/1630166.png',
   'Trae Young': 'https://cdn.nba.com/headshots/nba/latest/1040x760/1629027.png',
   'Jalen Brunson': 'https://cdn.nba.com/headshots/nba/latest/1040x760/1628973.png',
   'Tyrese Haliburton': 'https://cdn.nba.com/headshots/nba/latest/1040x760/1630169.png',

@@ -72,11 +72,43 @@ export async function GET(
 
   // Calculate yes/no question accuracy
   const snackStats = snackQuestions.map(q => {
-    const predictions = season.predictions.flatMap(p => p.snackAnswers.filter(sa => sa.questionId === q.id));
-    if (q.result === null) return { questionId: q.id, question: q.question, result: null, accuracy: null, correctCount: 0, totalCount: predictions.length };
-    const correctCount = predictions.filter(sa => sa.answer === q.result).length;
-    const accuracy = predictions.length > 0 ? Math.round((correctCount / predictions.length) * 100) : 0;
-    return { questionId: q.id, question: q.question, result: q.result, accuracy, correctCount, totalCount: predictions.length };
+    const answers = season.predictions.flatMap((p) =>
+      p.snackAnswers.filter((sa) => sa.questionId === q.id)
+    );
+    const yesCount = answers.filter((sa) => sa.answer).length;
+    const noCount = answers.length - yesCount;
+    const totalParticipants = season.predictions.length;
+    const missingCount = Math.max(totalParticipants - answers.length, 0);
+
+    if (q.result === null) {
+      return {
+        questionId: q.id,
+        question: q.question,
+        result: null,
+        accuracy: null,
+        correctCount: 0,
+        totalCount: answers.length,
+        yesCount,
+        noCount,
+        missingCount,
+        totalParticipants,
+      };
+    }
+
+    const correctCount = answers.filter((sa) => sa.answer === q.result).length;
+    const accuracy = answers.length > 0 ? Math.round((correctCount / answers.length) * 100) : 0;
+    return {
+      questionId: q.id,
+      question: q.question,
+      result: q.result,
+      accuracy,
+      correctCount,
+      totalCount: answers.length,
+      yesCount,
+      noCount,
+      missingCount,
+      totalParticipants,
+    };
   });
 
   // Calculate general question accuracy
@@ -84,14 +116,48 @@ export async function GET(
     const generalPredictions = season.predictions
       .map(p => (p.generalPrediction?.answers as Record<string, number> | undefined)?.[q.key])
       .filter((answer): answer is number => answer !== null && answer !== undefined);
+
+    const distributionMap = new Map<number, number>();
+    for (const answer of generalPredictions) {
+      distributionMap.set(answer, (distributionMap.get(answer) ?? 0) + 1);
+    }
+
+    const distribution = Array.from(distributionMap.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([value, count]) => ({ value, count }));
+
     const results = season.generalConfig?.results as Record<string, number> | null;
     const actualResult = results?.[q.key];
+    const totalParticipants = season.predictions.length;
+    const missingCount = Math.max(totalParticipants - generalPredictions.length, 0);
+
     if (actualResult === null || actualResult === undefined) {
-      return { key: q.key, label: q.label, result: null, accuracy: null, correctCount: 0, totalCount: generalPredictions.length };
+      return {
+        key: q.key,
+        label: q.label,
+        result: null,
+        accuracy: null,
+        correctCount: 0,
+        totalCount: generalPredictions.length,
+        distribution,
+        missingCount,
+        totalParticipants,
+      };
     }
+
     const correctCount = generalPredictions.filter(ans => ans === actualResult).length;
     const accuracy = generalPredictions.length > 0 ? Math.round((correctCount / generalPredictions.length) * 100) : 0;
-    return { key: q.key, label: q.label, result: actualResult, accuracy, correctCount, totalCount: generalPredictions.length };
+    return {
+      key: q.key,
+      label: q.label,
+      result: actualResult,
+      accuracy,
+      correctCount,
+      totalCount: generalPredictions.length,
+      distribution,
+      missingCount,
+      totalParticipants,
+    };
   });
 
   // Calculate MVP prediction accuracy

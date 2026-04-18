@@ -7,8 +7,8 @@ interface Team { id: string; name: string; abbr: string; seed: number; color: st
 interface Series { id: string; round: number; conference: string; label: string; homeTeam: Team; awayTeam: Team; winnerId: string | null; gameCount: number | null; leadingScorer: string | null; isComplete: boolean }
 interface Prediction { userId: string; userName: string; totalScore: number; seriesPredictions: { seriesId: string; winnerId: string; gameCount: number; leadingScorer: string; winnerScore: number; gamesScore: number; scorerScore: number; bonusApplied: boolean; totalScore: number }[]; leaderPredictions: { category: string; playerName: string; score: number }[]; generalPrediction: { answers: Record<string, number>; score: number } | null; snackAnswers: { questionId: number; answer: boolean; score: number }[] }
 interface SeriesStat { seriesId: string; homeTeam: string; awayTeam: string; homeTeamColor: string; awayTeamColor: string; winPercentage: number; correctPredictions: number; totalPredictions: number }
-interface SnackStat { questionId: number; question: string; result: boolean | null; accuracy: number | null; correctCount: number; totalCount: number }
-interface GeneralStat { key: string; label: string; result: number | null; accuracy: number | null; correctCount: number; totalCount: number }
+interface SnackStat { questionId: number; question: string; result: boolean | null; accuracy: number | null; correctCount: number; totalCount: number; yesCount: number; noCount: number; missingCount: number; totalParticipants: number }
+interface GeneralStat { key: string; label: string; result: number | null; accuracy: number | null; correctCount: number; totalCount: number; distribution: { value: number; count: number }[]; missingCount: number; totalParticipants: number }
 interface MvpStat { role: string; label: string; leader: string | null; accuracy: number | null; correctCount: number; totalCount: number }
 interface DashboardData { locked?: boolean; season?: { year: number; lockedAt: string }; series?: Series[]; playoffLeaders?: { category: string; playerName: string }[]; generalConfig?: { questions: { key: string; label: string }[]; results: Record<string, number> | null }; snackQuestions?: { id: number; question: string; result: boolean | null; order: number }[]; predictions?: Prediction[]; seriesStats?: SeriesStat[]; snackStats?: SnackStat[]; generalStats?: GeneralStat[]; mvpStats?: MvpStat[] }
 
@@ -151,6 +151,33 @@ function StatisticsView({ series, seriesStats, snackStats, generalStats, mvpStat
                   </span>
                   <span className="text-xs text-gray-500">{stat.correctCount}/{stat.totalCount}</span>
                 </div>
+
+                {/* Visual distribution bar */}
+                <div className="mt-3">
+                  <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden flex">
+                    {stat.totalParticipants > 0 && (
+                      <>
+                        <div
+                          className="h-full bg-green-500"
+                          style={{ width: `${(stat.yesCount / stat.totalParticipants) * 100}%` }}
+                        />
+                        <div
+                          className="h-full bg-red-500"
+                          style={{ width: `${(stat.noCount / stat.totalParticipants) * 100}%` }}
+                        />
+                        <div
+                          className="h-full bg-gray-300"
+                          style={{ width: `${(stat.missingCount / stat.totalParticipants) * 100}%` }}
+                        />
+                      </>
+                    )}
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] text-gray-500">
+                    <span>Yes: {stat.yesCount}</span>
+                    <span>No: {stat.noCount}</span>
+                    <span>Pending: {stat.missingCount}</span>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -173,6 +200,30 @@ function StatisticsView({ series, seriesStats, snackStats, generalStats, mvpStat
                     {stat.result !== null ? stat.result : 'Pending'}
                   </span>
                   <span className="text-xs text-gray-500">{stat.correctCount}/{stat.totalCount}</span>
+                </div>
+
+                {/* Distribution chart of user picks */}
+                <div className="mt-3 space-y-1.5">
+                  {stat.distribution.length === 0 ? (
+                    <p className="text-[11px] text-gray-500">No picks yet</p>
+                  ) : (
+                    stat.distribution
+                      .sort((a, b) => b.count - a.count)
+                      .slice(0, 6)
+                      .map((bucket) => (
+                        <div key={`${stat.key}-${bucket.value}`} className="flex items-center gap-2">
+                          <span className="w-7 text-[11px] text-gray-600 text-right">{bucket.value}</span>
+                          <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+                            <div
+                              className="h-full bg-blue-500"
+                              style={{ width: `${stat.totalCount > 0 ? (bucket.count / stat.totalCount) * 100 : 0}%` }}
+                            />
+                          </div>
+                          <span className="w-8 text-[11px] text-gray-500">{bucket.count}</span>
+                        </div>
+                      ))
+                  )}
+                  <div className="text-[11px] text-gray-500">Pending answers: {stat.missingCount}</div>
                 </div>
               </div>
             ))}

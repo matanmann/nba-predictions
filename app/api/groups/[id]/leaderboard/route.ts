@@ -44,10 +44,18 @@ export async function GET(
       seasonId: group.seasonId,
       userId: { in: memberIds },
     },
+    orderBy: { updatedAt: 'desc' },
   });
 
+  const latestByUser = new Map<string, typeof predictions[number]>();
+  for (const prediction of predictions) {
+    if (!latestByUser.has(prediction.userId)) {
+      latestByUser.set(prediction.userId, prediction);
+    }
+  }
+
   // Calculate scores and sort by total score
-  const leaderboard = predictions
+  const leaderboard = Array.from(latestByUser.values())
     .map((p) => ({
       userId: p.userId,
       userName: nicknameMap.get(p.userId) || 'Unknown',

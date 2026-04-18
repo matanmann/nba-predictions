@@ -32,11 +32,11 @@ export async function GET(
 
   const memberships = await prisma.membership.findMany({
     where: { groupId: id },
-    select: { userId: true, nickname: true },
+    select: { userId: true, nickname: true, user: { select: { name: true } } },
   });
 
   const memberIds = memberships.map((m) => m.userId);
-  const nicknameMap = new Map(memberships.map((m) => [m.userId, m.nickname || 'Unknown']));
+  const nicknameMap = new Map(memberships.map((m) => [m.userId, m.nickname || m.user.name || 'Unknown']));
 
   // Get group predictions only for members of this group
   const predictions = await prisma.prediction.findMany({

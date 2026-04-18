@@ -648,16 +648,20 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
       {activeTab === 'General' && <GeneralTab questions={seasonData.generalConfig?.questions ?? []} answers={generalAnswers} onChange={setGeneralAnswers} locked={isLocked} />}
       {activeTab === 'Snacks' && <SnacksTab questions={seasonData.snackQuestions} answers={snackAnswers} onChange={setSnackAnswers} locked={isLocked} />}
 
-      {!isLocked && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 z-50">
-          <div className="max-w-3xl mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 z-50">
+        <div className="max-w-3xl mx-auto">
+          {!isLocked ? (
             <button onClick={handleSubmit} disabled={!allComplete || submitStatus === 'saving'}
               className={`w-full py-3 rounded-xl text-sm font-semibold transition-all ${allComplete ? (submitStatus === 'saved' ? 'bg-green-500 text-white' : 'bg-gray-900 text-white hover:bg-gray-800 active:scale-[0.98]') : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
               {submitStatus === 'saving' ? 'Saving...' : submitStatus === 'saved' ? '✓ Saved!' : submitStatus === 'error' ? 'Error — try again' : !allComplete ? 'Complete all tabs to submit' : 'Submit predictions'}
             </button>
-          </div>
+          ) : (
+            <div className="w-full py-3 rounded-xl text-sm font-semibold text-center bg-red-50 border border-red-200 text-red-700">
+              🔒 Predictions are locked. Your selections cannot be changed.
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

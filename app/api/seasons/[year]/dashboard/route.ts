@@ -72,8 +72,8 @@ export async function GET(
 
   // Calculate yes/no question accuracy
   const snackStats = snackQuestions.map(q => {
-    if (q.result === null) return { questionId: q.id, question: q.question, result: null, accuracy: null, correctCount: 0, totalCount: 0 };
     const predictions = season.predictions.flatMap(p => p.snackAnswers.filter(sa => sa.questionId === q.id));
+    if (q.result === null) return { questionId: q.id, question: q.question, result: null, accuracy: null, correctCount: 0, totalCount: predictions.length };
     const correctCount = predictions.filter(sa => sa.answer === q.result).length;
     const accuracy = predictions.length > 0 ? Math.round((correctCount / predictions.length) * 100) : 0;
     return { questionId: q.id, question: q.question, result: q.result, accuracy, correctCount, totalCount: predictions.length };
@@ -81,10 +81,14 @@ export async function GET(
 
   // Calculate general question accuracy
   const generalStats = ((season.generalConfig?.questions as Array<{ key: string; label: string }> | null) ?? []).map(q => {
-    const generalPredictions = season.predictions.map(p => (p.generalPrediction?.answers as Record<string, number> | undefined)?.[q.key]).filter(Boolean);
+    const generalPredictions = season.predictions
+      .map(p => (p.generalPrediction?.answers as Record<string, number> | undefined)?.[q.key])
+      .filter((answer): answer is number => answer !== null && answer !== undefined);
     const results = season.generalConfig?.results as Record<string, number> | null;
     const actualResult = results?.[q.key];
-    if (!actualResult) return { key: q.key, label: q.label, result: null, accuracy: null, correctCount: 0, totalCount: 0 };
+    if (actualResult === null || actualResult === undefined) {
+      return { key: q.key, label: q.label, result: null, accuracy: null, correctCount: 0, totalCount: generalPredictions.length };
+    }
     const correctCount = generalPredictions.filter(ans => ans === actualResult).length;
     const accuracy = generalPredictions.length > 0 ? Math.round((correctCount / generalPredictions.length) * 100) : 0;
     return { key: q.key, label: q.label, result: actualResult, accuracy, correctCount, totalCount: generalPredictions.length };
@@ -96,19 +100,26 @@ export async function GET(
     { role: 'westMvp', label: 'West MVP' },
     { role: 'finalsMvp', label: 'Finals MVP' },
   ].map(mvp => {
+    const roleToCategory: Record<string, string> = {
+      eastMvp: '__mvp_east',
+      westMvp: '__mvp_west',
+      finalsMvp: '__mvp_finals',
+    };
     const predictions = season.predictions.flatMap(p => 
       p.leaderPredictions.filter(lp => {
-        const categoryMap: Record<string, string> = { eastMvp: '__mvp_east', westMvp: '__mvp_west', finalsMvp: '__mvp_finals' };
-        return lp.category === categoryMap[mvp.role];
+        return lp.category === roleToCategory[mvp.role];
       }).map(lp => lp.playerName)
     );
     const actualLeader = season.playoffLeaders.find(l => {
-      const categoryMap: Record<string, string> = { '__mvp_east': 'eastMvp', '__mvp_west': 'westMvp', '__mvp_finals': 'finalsMvp' };
-      return categoryMap[mvp.role] === l.category;
+      return l.category === roleToCategory[mvp.role];
     })?.playerName;
-    
-    const correctCount = predictions.filter(p => p === actualLeader).length;
-    const accuracy = predictions.length > 0 ? Math.round((correctCount / predictions.length) * 100) : 0;
+
+    const correctCount = actualLeader
+      ? predictions.filter(p => p === actualLeader).length
+      : 0;
+    const accuracy = actualLeader && predictions.length > 0
+      ? Math.round((correctCount / predictions.length) * 100)
+      : null;
     return { role: mvp.role, label: mvp.label, leader: actualLeader, accuracy, correctCount, totalCount: predictions.length };
   });
 

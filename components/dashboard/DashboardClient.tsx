@@ -9,7 +9,7 @@ interface Prediction { userId: string; userName: string; totalScore: number; ser
 interface SeriesStat { seriesId: string; homeTeam: string; awayTeam: string; homeTeamColor: string; awayTeamColor: string; winPercentage: number; correctPredictions: number; totalPredictions: number }
 interface SnackStat { questionId: number; question: string; result: boolean | null; accuracy: number | null; correctCount: number; totalCount: number }
 interface GeneralStat { key: string; label: string; result: number | null; accuracy: number | null; correctCount: number; totalCount: number }
-interface MvpStat { role: string; label: string; leader: string | null; accuracy: number; correctCount: number; totalCount: number }
+interface MvpStat { role: string; label: string; leader: string | null; accuracy: number | null; correctCount: number; totalCount: number }
 interface DashboardData { locked?: boolean; season?: { year: number; lockedAt: string }; series?: Series[]; playoffLeaders?: { category: string; playerName: string }[]; generalConfig?: { questions: { key: string; label: string }[]; results: Record<string, number> | null }; snackQuestions?: { id: number; question: string; result: boolean | null; order: number }[]; predictions?: Prediction[]; seriesStats?: SeriesStat[]; snackStats?: SnackStat[]; generalStats?: GeneralStat[]; mvpStats?: MvpStat[] }
 
 const TABS = ['Rankings', 'Statistics', 'Bracket', 'My picks', 'Deni tracker'] as const
@@ -135,21 +135,21 @@ function StatisticsView({ series, seriesStats, snackStats, generalStats, mvpStat
       )}
 
       {/* Yes/No Questions Accuracy */}
-      {snackStats.filter(s => s.result !== null).length > 0 && (
+      {snackStats.length > 0 && (
         <div>
           <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Yes/No Predictions</div>
           <div className="space-y-2">
-            {snackStats.filter(s => s.result !== null).map(stat => (
+            {snackStats.map(stat => (
               <div key={stat.questionId} className="bg-white rounded-lg border border-gray-200 p-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm text-gray-700">{stat.question}</span>
-                  {stat.accuracy !== null && <span className="text-sm font-bold text-blue-600">{stat.accuracy}%</span>}
+                  <span className="text-sm font-bold text-blue-600">{stat.accuracy !== null ? `${stat.accuracy}%` : 'Pending'}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${stat.result ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                    {stat.result ? 'Yes' : 'No'}
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${stat.result === null ? 'bg-gray-100 text-gray-600' : stat.result ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                    {stat.result === null ? 'Pending' : stat.result ? 'Yes' : 'No'}
                   </span>
-                  {stat.accuracy !== null && <span className="text-xs text-gray-500">{stat.correctCount}/{stat.totalCount}</span>}
+                  <span className="text-xs text-gray-500">{stat.correctCount}/{stat.totalCount}</span>
                 </div>
               </div>
             ))}
@@ -158,19 +158,21 @@ function StatisticsView({ series, seriesStats, snackStats, generalStats, mvpStat
       )}
 
       {/* General Questions Accuracy */}
-      {generalStats.filter(s => s.result !== null).length > 0 && (
+      {generalStats.length > 0 && (
         <div>
           <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">General Predictions</div>
           <div className="space-y-2">
-            {generalStats.filter(s => s.result !== null).map(stat => (
+            {generalStats.map(stat => (
               <div key={stat.key} className="bg-white rounded-lg border border-gray-200 p-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm text-gray-700">{stat.label}</span>
-                  {stat.accuracy !== null && <span className="text-sm font-bold text-blue-600">{stat.accuracy}%</span>}
+                  <span className="text-sm font-bold text-blue-600">{stat.accuracy !== null ? `${stat.accuracy}%` : 'Pending'}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{stat.result}</span>
-                  {stat.accuracy !== null && <span className="text-xs text-gray-500">{stat.correctCount}/{stat.totalCount}</span>}
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${stat.result !== null ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {stat.result !== null ? stat.result : 'Pending'}
+                  </span>
+                  <span className="text-xs text-gray-500">{stat.correctCount}/{stat.totalCount}</span>
                 </div>
               </div>
             ))}
@@ -179,18 +181,20 @@ function StatisticsView({ series, seriesStats, snackStats, generalStats, mvpStat
       )}
 
       {/* MVP Predictions Accuracy */}
-      {mvpStats.filter(m => m.leader).length > 0 && (
+      {mvpStats.length > 0 && (
         <div>
           <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">MVP Predictions</div>
           <div className="space-y-2">
-            {mvpStats.filter(m => m.leader).map(stat => (
+            {mvpStats.map(stat => (
               <div key={stat.role} className="bg-white rounded-lg border border-gray-200 p-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm text-gray-700">{stat.label}</span>
-                  <span className="text-sm font-bold text-blue-600">{stat.accuracy}%</span>
+                  <span className="text-sm font-bold text-blue-600">{stat.accuracy !== null ? `${stat.accuracy}%` : 'Pending'}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded">🥇 {stat.leader}</span>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${stat.leader ? 'bg-yellow-50 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {stat.leader ? `🥇 ${stat.leader}` : 'Pending'}
+                  </span>
                   <span className="text-xs text-gray-500">{stat.correctCount}/{stat.totalCount}</span>
                 </div>
               </div>

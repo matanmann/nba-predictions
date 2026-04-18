@@ -331,13 +331,13 @@ const PLAYOFF_PLAYERS: Record<string, string[]> = {
   NYK: ['Jalen Brunson','Karl-Anthony Towns','Mikal Bridges','OG Anunoby','Josh Hart','Miles McBride','Mitchell Robinson','Precious Achiuwa','Cameron Payne','Donte DiVincenzo','Jericho Sims','Pacome Dadiet','Charlie Brown Jr.'],
   CLE: ['Donovan Mitchell','Darius Garland','Evan Mobley','Jarrett Allen','Max Strus','Caris LeVert','Isaac Okoro','Sam Merrill','Georges Niang','Dean Wade','Ty Jerome','Craig Porter Jr.','Tristan Thompson'],
   TOR: ['Scottie Barnes','RJ Barrett','Immanuel Quickley','Jakob Poeltl','Grady Dick','Bruce Brown','Kelly Olynyk','Davion Mitchell','Ochai Agbaji'],
-  ATL: ['Trae Young','Jalen Johnson','De\'Andre Hunter','Clint Capela','Dyson Daniels','Bogdan Bogdanovic','Zaccharie Risacher','Larry Nance Jr.','Garrison Mathews','Kobe Bufkin','Onyeka Okongwu','Bruno Fernando'],
+  ATL: ['Trae Young','Jalen Johnson','De\'Andre Hunter','Clint Capela','Dyson Daniels','Bogdan Bogdanovic','Zaccharie Risacher','Nickeil Alexander-Walker','Larry Nance Jr.','Garrison Mathews','Kobe Bufkin','Onyeka Okongwu','Bruno Fernando'],
   PHI: ['Joel Embiid','Tyrese Maxey','Paul George','Kelly Oubre Jr.','Caleb Martin','Kyle Lowry','Eric Gordon','Andre Drummond','Guerschon Yabusele','Ricky Council IV'],
   MIA: ['Jimmy Butler','Bam Adebayo','Tyler Herro','Terry Rozier','Jaime Jaquez Jr.','Duncan Robinson','Nikola Jovic','Kevin Love','Haywood Highsmith','Josh Richardson','Thomas Bryant'],
 
   // --- Eastern Play-In Teams ---
   IND: ['Tyrese Haliburton','Pascal Siakam','Myles Turner','Andrew Nembhard','Bennedict Mathurin','Aaron Nesmith','T.J. McConnell','Obi Toppin','Isaiah Jackson','Jarace Walker','Ben Sheppard','Kendrick Nunn','Damiris Dantas'],
-  ORL: ['Paolo Banchero','Franz Wagner','Jalen Suggs','Wendell Carter Jr.','Jonathan Isaac','Kentavious Caldwell-Pope','Cole Anthony','Goga Bitadze','Moritz Wagner','Anthony Black','Jett Howard','Gary Harris','Trevelin Queen'],
+  ORL: ['Paolo Banchero','Franz Wagner','Jalen Suggs','Desmond Bane','Wendell Carter Jr.','Jonathan Isaac','Kentavious Caldwell-Pope','Cole Anthony','Goga Bitadze','Moritz Wagner','Anthony Black','Jett Howard','Gary Harris','Trevelin Queen'],
 
   // --- Western Conference Playoff Teams ---
   OKC: ['Shai Gilgeous-Alexander','Jalen Williams','Chet Holmgren','Lu Dort','Isaiah Hartenstein','Alex Caruso','Aaron Wiggins','Kenrich Williams','Isaiah Joe','Ousmane Dieng','Cason Wallace','Jaylin Williams'],

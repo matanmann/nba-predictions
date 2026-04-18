@@ -123,7 +123,7 @@ export async function POST(
   const { year } = await params;
   const y = +year;
 
-  if (isLocked(y) && !(isAdmin && targetUserId)) {
+  if (isLocked(y) && !isAdmin) {
     return NextResponse.json({ error: "Predictions are locked" }, { status: 423 });
   }
 

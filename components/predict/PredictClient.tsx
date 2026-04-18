@@ -574,6 +574,8 @@ export default function PredictClient({ year, initialGroupId, initialAdminUserId
   const snacksComplete = seasonData?.snackQuestions ? seasonData.snackQuestions.every(q => snackAnswers[q.id] !== undefined) : false
   const allComplete = bracketComplete && leadersComplete && generalComplete && snacksComplete
   const isLocked = lockStatus?.locked ?? false
+  const isAdminEditing = Boolean(initialAdminUserId)
+  const inputsLocked = isLocked && !isAdminEditing
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="text-sm text-gray-400 animate-pulse">Loading predictions...</div></div>
   if (error && !seasonData) return <div className="flex items-center justify-center py-20"><div className="text-sm text-red-500">{error}</div></div>
@@ -634,9 +636,15 @@ export default function PredictClient({ year, initialGroupId, initialAdminUserId
           <span className="text-sm font-mono font-semibold text-amber-800">{formatCountdown(lockStatus.secondsUntilLock)}</span>
         </div>
       )}
-      {isLocked && (
+      {inputsLocked && (
         <div className="mb-5 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
           <span className="text-sm font-medium text-red-700">Predictions are locked. View the dashboard to track scores.</span>
+        </div>
+      )}
+
+      {isAdminEditing && isLocked && (
+        <div className="mb-5 rounded-xl bg-blue-50 border border-blue-200 px-4 py-3">
+          <span className="text-sm font-medium text-blue-700">Admin override: you can still edit and save after lock time.</span>
         </div>
       )}
 
@@ -656,17 +664,17 @@ export default function PredictClient({ year, initialGroupId, initialAdminUserId
         })}
       </div>
 
-      {activeTab === 'Bracket' && <BracketTab bracket={fullBracket} predictions={bracketPreds} onChange={setBracketPreds} locked={isLocked} mvpPreds={mvpPreds} onMvpChange={setMvpPreds} eastPlayers={eastPlayers} westPlayers={westPlayers} allPlayers={allPlayers} />}
-      {activeTab === 'Leaders' && <LeadersTab predictions={leaderPreds} onChange={setLeaderPreds} locked={isLocked} allPlayers={allPlayers} />}
-      {activeTab === 'General' && <GeneralTab questions={seasonData.generalConfig?.questions ?? []} answers={generalAnswers} onChange={setGeneralAnswers} locked={isLocked} />}
-      {activeTab === 'Snacks' && <SnacksTab questions={seasonData.snackQuestions} answers={snackAnswers} onChange={setSnackAnswers} locked={isLocked} />}
+      {activeTab === 'Bracket' && <BracketTab bracket={fullBracket} predictions={bracketPreds} onChange={setBracketPreds} locked={inputsLocked} mvpPreds={mvpPreds} onMvpChange={setMvpPreds} eastPlayers={eastPlayers} westPlayers={westPlayers} allPlayers={allPlayers} />}
+      {activeTab === 'Leaders' && <LeadersTab predictions={leaderPreds} onChange={setLeaderPreds} locked={inputsLocked} allPlayers={allPlayers} />}
+      {activeTab === 'General' && <GeneralTab questions={seasonData.generalConfig?.questions ?? []} answers={generalAnswers} onChange={setGeneralAnswers} locked={inputsLocked} />}
+      {activeTab === 'Snacks' && <SnacksTab questions={seasonData.snackQuestions} answers={snackAnswers} onChange={setSnackAnswers} locked={inputsLocked} />}
 
       <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 z-50">
         <div className="max-w-3xl mx-auto">
-          {!isLocked ? (
+          {!inputsLocked ? (
             <button onClick={handleSubmit} disabled={!allComplete || submitStatus === 'saving'}
               className={`w-full py-3 rounded-xl text-sm font-semibold transition-all ${allComplete ? (submitStatus === 'saved' ? 'bg-green-500 text-white' : 'bg-gray-900 text-white hover:bg-gray-800 active:scale-[0.98]') : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
-              {submitStatus === 'saving' ? 'Saving...' : submitStatus === 'saved' ? '✓ Saved!' : submitStatus === 'error' ? 'Error — try again' : !allComplete ? 'Complete all tabs to submit' : 'Submit predictions'}
+              {submitStatus === 'saving' ? 'Saving...' : submitStatus === 'saved' ? '✓ Saved!' : submitStatus === 'error' ? 'Error — try again' : !allComplete ? 'Complete all tabs to submit' : isAdminEditing ? 'Save admin update' : 'Submit predictions'}
             </button>
           ) : (
             <div className="w-full py-3 rounded-xl text-sm font-semibold text-center bg-red-50 border border-red-200 text-red-700">

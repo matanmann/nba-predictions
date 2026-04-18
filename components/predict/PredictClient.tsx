@@ -384,7 +384,7 @@ function buildFullBracket(r1Series: Series[], preds: Record<string, { winnerId: 
   }
 }
 
-export default function PredictClient({ year, initialGroupId }: { year: number; initialGroupId?: string }) {
+export default function PredictClient({ year, initialGroupId, initialAdminUserId }: { year: number; initialGroupId?: string; initialAdminUserId?: string }) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('Bracket')
   const [seasonData, setSeasonData] = useState<SeasonData | null>(null)
@@ -402,6 +402,7 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
   const [groupsLoading, setGroupsLoading] = useState(true)
   const [groupError, setGroupError] = useState<string | null>(null)
   const lockStatus = useLockStatus(year)
+  const targetUserQuery = initialAdminUserId ? `?targetUserId=${encodeURIComponent(initialAdminUserId)}` : ''
 
   const roundOneSeries = useMemo(
     () => seasonData?.series.filter((series) => series.round === 1) ?? [],
@@ -446,20 +447,22 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
   useEffect(() => {
     async function load() {
       try {
-        // Try to load from localStorage first
-        const cachedPreds = loadPredictionsFromLocalStorage(year);
-        if (cachedPreds) {
-          setBracketPreds(cachedPreds.bracketPreds || {});
-          setLeaderPreds(cachedPreds.leaderPreds || {});
-          setGeneralAnswers(cachedPreds.generalAnswers || {});
-          setSnackAnswers(cachedPreds.snackAnswers || {});
-          setMvpPreds(cachedPreds.mvpPreds || { eastMvp: '', westMvp: '', finalsMvp: '' });
+        // Try to load from localStorage first (disabled in admin-target mode)
+        if (!initialAdminUserId) {
+          const cachedPreds = loadPredictionsFromLocalStorage(year);
+          if (cachedPreds) {
+            setBracketPreds(cachedPreds.bracketPreds || {});
+            setLeaderPreds(cachedPreds.leaderPreds || {});
+            setGeneralAnswers(cachedPreds.generalAnswers || {});
+            setSnackAnswers(cachedPreds.snackAnswers || {});
+            setMvpPreds(cachedPreds.mvpPreds || { eastMvp: '', westMvp: '', finalsMvp: '' });
+          }
         }
 
         const res = await fetch(`/api/seasons/${year}`)
         if (!res.ok) throw new Error('Failed to load season')
         setSeasonData(await res.json())
-        const predRes = await fetch(`/api/seasons/${year}/predictions`)
+        const predRes = await fetch(`/api/seasons/${year}/predictions${targetUserQuery}`)
         if (predRes.ok) {
           const predData = await predRes.json()
           if (predData.prediction) {
@@ -478,11 +481,13 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
             for (const m of p.mvpPredictions ?? []) mvp[m.role] = m.playerName
             setMvpPreds(mvp)
           }
+        } else if (predRes.status === 403) {
+          throw new Error('Forbidden: admin access required for target user edits')
         }
       } catch (e: any) { setError(e.message) } finally { setLoading(false) }
     }
     load()
-  }, [year])
+  }, [year, initialAdminUserId, targetUserQuery])
 
   useEffect(() => {
     async function loadGroups() {
@@ -532,15 +537,16 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
 
   // Save bracket predictions to localStorage
   useEffect(() => {
+    if (initialAdminUserId) return
     const predictions = { bracketPreds, leaderPreds, generalAnswers, snackAnswers, mvpPreds }
     savePredictionsToLocalStorage(year, predictions)
-  }, [year, bracketPreds, leaderPreds, generalAnswers, snackAnswers, mvpPreds])
+  }, [year, bracketPreds, leaderPreds, generalAnswers, snackAnswers, mvpPreds, initialAdminUserId])
 
   async function handleSubmit() {
     if (!seasonData) return
     setSubmitStatus('saving')
     try {
-      const res = await fetch(`/api/seasons/${year}/predictions`, {
+      const res = await fetch(`/api/seasons/${year}/predictions${targetUserQuery}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           seriesPredictions: Object.entries(bracketPreds).map(([seriesId, pred]) => ({ seriesId, ...pred })),
@@ -551,8 +557,9 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
         }),
       })
       if (res.status === 423) { setSubmitStatus('error'); setError('Predictions are locked!'); return }
+      if (res.status === 403) { setSubmitStatus('error'); setError('Forbidden: admin access required'); return }
       if (!res.ok) throw new Error('Submit failed')
-      clearPredictionsFromLocalStorage(year)
+      if (!initialAdminUserId) clearPredictionsFromLocalStorage(year)
       setSubmitStatus('saved'); setTimeout(() => setSubmitStatus('idle'), 2500)
     } catch { setSubmitStatus('error'); setTimeout(() => setSubmitStatus('idle'), 3000) }
   }
@@ -584,6 +591,12 @@ export default function PredictClient({ year, initialGroupId }: { year: number; 
           </div>
         </div>
       </div>
+
+      {initialAdminUserId && (
+        <div className="mb-5 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+          <span className="text-sm font-medium text-red-700">Admin edit mode: updating predictions for user {initialAdminUserId}</span>
+        </div>
+      )}
 
       {(groupsLoading || groups.length > 0 || groupInfo) && (
         <div className="mb-5 rounded-2xl bg-white border border-gray-200 p-4">

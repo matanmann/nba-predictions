@@ -32,10 +32,36 @@ export async function GET(req: NextRequest) {
 
   const snackQuestions = dedupeSnackQuestions(season.snackQuestions);
 
+  const participants = await prisma.user.findMany({
+    where: {
+      OR: [
+        { memberships: { some: { group: { seasonId: season.id } } } },
+        { predictions: { some: { seasonId: season.id } } },
+      ],
+    },
+    select: {
+      clerkId: true,
+      name: true,
+      email: true,
+      memberships: {
+        where: { group: { seasonId: season.id } },
+        select: { nickname: true },
+        take: 1,
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
   return NextResponse.json({
     snackQuestions,
     generalResults: season.generalConfig?.results ?? {},
     series: season.series,
     playoffLeaders: season.playoffLeaders,
+    participants: participants.map((user) => ({
+      userId: user.clerkId,
+      displayName:
+        user.memberships[0]?.nickname || user.name || user.email || user.clerkId,
+      email: user.email,
+    })),
   });
 }

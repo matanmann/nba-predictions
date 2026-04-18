@@ -9,8 +9,16 @@ interface SnackQuestion {
   order: number;
 }
 
+interface AdminParticipant {
+  userId: string;
+  displayName: string;
+  email: string;
+}
+
 export default function AdminClient({ year }: { year: number }) {
   const [snacks, setSnacks] = useState<SnackQuestion[]>([]);
+  const [participants, setParticipants] = useState<AdminParticipant[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [gameWinners, setGameWinners] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -31,6 +39,10 @@ export default function AdminClient({ year }: { year: number }) {
       }
       const data = await res.json();
       setSnacks(data.snackQuestions ?? []);
+      setParticipants(data.participants ?? []);
+      if (data.participants?.length) {
+        setSelectedUserId(data.participants[0].userId);
+      }
       setGameWinners(String(data.generalResults?.gameWinners ?? ""));
       setLoading(false);
     }
@@ -96,6 +108,11 @@ export default function AdminClient({ year }: { year: number }) {
     } finally {
       setInitRunning(false);
     }
+  }
+
+  function handleEditUserPredictions() {
+    if (!selectedUserId) return;
+    router.push(`/predict/${year}?adminUserId=${encodeURIComponent(selectedUserId)}`);
   }
 
   if (loading) return <div className="p-6 text-gray-500">Loading admin panel...</div>;
@@ -167,6 +184,48 @@ export default function AdminClient({ year }: { year: number }) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Admin Prediction Editor */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <p className="text-sm font-medium text-gray-900 mb-1">
+              Edit user predictions
+            </p>
+            <p className="text-xs text-gray-500">
+              Open the prediction form for any user and edit it as admin.
+            </p>
+          </div>
+          <span className="text-[11px] bg-red-50 text-red-700 px-2 py-0.5 rounded-md font-medium">
+            Admin only
+          </span>
+        </div>
+
+        {participants.length === 0 ? (
+          <p className="text-xs text-gray-500">No users found for this season yet.</p>
+        ) : (
+          <div className="flex flex-col sm:flex-row gap-2">
+            <select
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+            >
+              {participants.map((participant) => (
+                <option key={participant.userId} value={participant.userId}>
+                  {participant.displayName} ({participant.email})
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleEditUserPredictions}
+              disabled={!selectedUserId}
+              className="px-4 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100 disabled:opacity-50"
+            >
+              Edit predictions
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Game-Winning Shots */}

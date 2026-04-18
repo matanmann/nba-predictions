@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { isLocked } from "@/lib/lock";
+import { env } from "@/lib/env";
 import { z } from "zod";
 
 const LEADER_CATEGORIES = ["Points", "Assists", "Rebounds", "Blocks", "Steals"] as const;
@@ -39,18 +40,35 @@ const submitSchema = z.object({
 });
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ year: string }> }
 ) {
   const { userId, error } = await requireAuth();
   if (error) return error;
 
+  const isAdmin = env.ADMIN_USER_IDS.includes(userId!);
+  const targetUserId = req.nextUrl.searchParams.get("targetUserId")?.trim() || null;
+  if (targetUserId && !isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const effectiveUserId = targetUserId ?? userId!;
+
   const { year } = await params;
   const season = await prisma.season.findUnique({ where: { year: +year } });
   if (!season) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  if (targetUserId) {
+    const targetUser = await prisma.user.findUnique({
+      where: { clerkId: effectiveUserId },
+      select: { clerkId: true },
+    });
+    if (!targetUser) {
+      return NextResponse.json({ error: "Target user not found" }, { status: 404 });
+    }
+  }
+
   const predictionRecord = await prisma.prediction.findUnique({
-    where: { userId_seasonId: { userId: userId!, seasonId: season.id } },
+    where: { userId_seasonId: { userId: effectiveUserId, seasonId: season.id } },
     include: {
       seriesPredictions: true,
       leaderPredictions: true,
@@ -95,10 +113,17 @@ export async function POST(
   const { userId, error } = await requireAuth();
   if (error) return error;
 
+  const isAdmin = env.ADMIN_USER_IDS.includes(userId!);
+  const targetUserId = req.nextUrl.searchParams.get("targetUserId")?.trim() || null;
+  if (targetUserId && !isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const effectiveUserId = targetUserId ?? userId!;
+
   const { year } = await params;
   const y = +year;
 
-  if (isLocked(y)) {
+  if (isLocked(y) && !(isAdmin && targetUserId)) {
     return NextResponse.json({ error: "Predictions are locked" }, { status: 423 });
   }
 
@@ -124,9 +149,19 @@ export async function POST(
   const season = await prisma.season.findUnique({ where: { year: y } });
   if (!season) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  if (targetUserId) {
+    const targetUser = await prisma.user.findUnique({
+      where: { clerkId: effectiveUserId },
+      select: { clerkId: true },
+    });
+    if (!targetUser) {
+      return NextResponse.json({ error: "Target user not found" }, { status: 404 });
+    }
+  }
+
   const prediction = await prisma.prediction.upsert({
-    where: { userId_seasonId: { userId: userId!, seasonId: season.id } },
-    create: { userId: userId!, seasonId: season.id },
+    where: { userId_seasonId: { userId: effectiveUserId, seasonId: season.id } },
+    create: { userId: effectiveUserId, seasonId: season.id },
     update: { updatedAt: new Date() },
   });
 

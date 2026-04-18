@@ -36,6 +36,7 @@ export async function GET(
       snackQuestions: { orderBy: { order: "asc" } },
       predictions: {
         include: {
+          user: { select: { name: true } },
           seriesPredictions: true,
           leaderPredictions: true,
           generalPrediction: true,
@@ -48,12 +49,28 @@ export async function GET(
 
   const snackQuestions = dedupeSnackQuestions(season.snackQuestions);
 
+  // Calculate series statistics
+  const seriesStats = season.series.map(s => {
+    const correctPredictions = season.predictions.filter(p =>
+      p.seriesPredictions.some(sp => sp.seriesId === s.id && sp.winnerId === s.winnerId && s.winnerId)
+    ).length;
+    const totalPredictions = season.predictions.filter(p =>
+      p.seriesPredictions.some(sp => sp.seriesId === s.id)
+    ).length;
+    const winPercentage = totalPredictions > 0 ? Math.round((correctPredictions / totalPredictions) * 100) : 0;
+    return { seriesId: s.id, winPercentage, correctPredictions, totalPredictions };
+  });
+
   return NextResponse.json({
     season: { year: season.year, lockedAt: season.lockedAt },
     series: season.series,
     playoffLeaders: season.playoffLeaders,
     generalConfig: season.generalConfig,
     snackQuestions,
-    predictions: season.predictions,
+    predictions: season.predictions.map(p => ({
+      ...p,
+      userName: p.user?.name || 'Unknown',
+    })),
+    seriesStats,
   });
 }

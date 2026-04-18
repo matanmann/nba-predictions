@@ -27,7 +27,7 @@ async function main() {
     { id: "tor", name: "Toronto Raptors",        abbr: "TOR", conference: "E", seed: 5, color: "#CE1141" },
     { id: "atl", name: "Atlanta Hawks",          abbr: "ATL", conference: "E", seed: 6, color: "#E03A3E" },
     { id: "phi", name: "Philadelphia 76ers",     abbr: "PHI", conference: "E", seed: 7, color: "#006BB6" },
-    { id: "mia", name: "Miami Heat",             abbr: "MIA", conference: "E", seed: 8, color: "#98002E" },
+    { id: "orl", name: "Orlando Magic",          abbr: "ORL", conference: "E", seed: 8, color: "#0077C0" },
 
     // Western Conference - מעודכן ל-2026
     { id: "okc", name: "Oklahoma City Thunder",  abbr: "OKC", conference: "W", seed: 1, color: "#007AC1" },
@@ -42,6 +42,27 @@ async function main() {
 
 
   for (const t of teams) {
+    const existingTeamInSlot = await prisma.team.findFirst({
+      where: {
+        seasonId: season.id,
+        seed: t.seed,
+        conference: t.conference,
+      },
+    });
+
+    if (existingTeamInSlot && existingTeamInSlot.id !== t.id) {
+      await prisma.team.update({
+        where: { id: existingTeamInSlot.id },
+        data: {
+          id: t.id,
+          name: t.name,
+          abbr: t.abbr,
+          color: t.color,
+        },
+      });
+      continue;
+    }
+
     await prisma.team.upsert({
       where: { id: t.id },
       update: { seed: t.seed, name: t.name, abbr: t.abbr },
@@ -52,7 +73,7 @@ async function main() {
   // ── Round 1 Series (1v8, 2v7, 3v6, 4v5) ──
   const series = [
      // Eastern Conference Round 1
-    { id: "2026-E1", round: 1, conference: "E", label: "E1", homeTeamId: "det", awayTeamId: "mia" }, // 1 vs 8
+    { id: "2026-E1", round: 1, conference: "E", label: "E1", homeTeamId: "det", awayTeamId: "orl" }, // 1 vs 8
     { id: "2026-E2", round: 1, conference: "E", label: "E2", homeTeamId: "bos", awayTeamId: "phi" }, // 2 vs 7
     { id: "2026-E3", round: 1, conference: "E", label: "E3", homeTeamId: "nyc", awayTeamId: "atl" }, // 3 vs 6
     { id: "2026-E4", round: 1, conference: "E", label: "E4", homeTeamId: "cle", awayTeamId: "tor" }, // 4 vs 5
@@ -77,7 +98,13 @@ async function main() {
   for (const s of series) {
     await prisma.series.upsert({
       where: { id: s.id },
-      update: {},
+      update: {
+        round: s.round,
+        conference: s.conference,
+        label: s.label,
+        homeTeamId: s.homeTeamId,
+        awayTeamId: s.awayTeamId,
+      },
       create: { ...s, seasonId: season.id },
     });
   }

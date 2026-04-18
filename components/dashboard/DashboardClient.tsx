@@ -6,15 +6,18 @@ import { useDashboard } from '@/hooks/useDashboard'
 interface Team { id: string; name: string; abbr: string; seed: number; color: string }
 interface Series { id: string; round: number; conference: string; label: string; homeTeam: Team; awayTeam: Team; winnerId: string | null; gameCount: number | null; leadingScorer: string | null; isComplete: boolean }
 interface Prediction { userId: string; userName: string; totalScore: number; seriesPredictions: { seriesId: string; winnerId: string; gameCount: number; leadingScorer: string; winnerScore: number; gamesScore: number; scorerScore: number; bonusApplied: boolean; totalScore: number }[]; leaderPredictions: { category: string; playerName: string; score: number }[]; generalPrediction: { answers: Record<string, number>; score: number } | null; snackAnswers: { questionId: number; answer: boolean; score: number }[] }
-interface SeriesStat { seriesId: string; winPercentage: number; correctPredictions: number; totalPredictions: number }
-interface DashboardData { locked?: boolean; season?: { year: number; lockedAt: string }; series?: Series[]; playoffLeaders?: { category: string; playerName: string }[]; generalConfig?: { questions: { key: string; label: string }[]; results: Record<string, number> | null }; snackQuestions?: { id: number; question: string; result: boolean | null; order: number }[]; predictions?: Prediction[]; seriesStats?: SeriesStat[] }
+interface SeriesStat { seriesId: string; homeTeam: string; awayTeam: string; homeTeamColor: string; awayTeamColor: string; winPercentage: number; correctPredictions: number; totalPredictions: number }
+interface SnackStat { questionId: number; question: string; result: boolean | null; accuracy: number | null; correctCount: number; totalCount: number }
+interface GeneralStat { key: string; label: string; result: number | null; accuracy: number | null; correctCount: number; totalCount: number }
+interface MvpStat { role: string; label: string; leader: string | null; accuracy: number; correctCount: number; totalCount: number }
+interface DashboardData { locked?: boolean; season?: { year: number; lockedAt: string }; series?: Series[]; playoffLeaders?: { category: string; playerName: string }[]; generalConfig?: { questions: { key: string; label: string }[]; results: Record<string, number> | null }; snackQuestions?: { id: number; question: string; result: boolean | null; order: number }[]; predictions?: Prediction[]; seriesStats?: SeriesStat[]; snackStats?: SnackStat[]; generalStats?: GeneralStat[]; mvpStats?: MvpStat[] }
 
-const TABS = ['Leaderboard', 'Bracket', 'My picks', 'Deni tracker'] as const
+const TABS = ['Rankings', 'Statistics', 'Bracket', 'My picks', 'Deni tracker'] as const
 type Tab = typeof TABS[number]
 
 export default function DashboardClient({ year }: { year: string }) {
   const { data, isLoading } = useDashboard(+year)
-  const [activeTab, setActiveTab] = useState<Tab>('Leaderboard')
+  const [activeTab, setActiveTab] = useState<Tab>('Rankings')
 
   if (isLoading) return <div className="flex items-center justify-center py-20"><div className="text-sm text-gray-400">Loading dashboard...</div></div>
   if (!data || data.locked === false) {
@@ -41,7 +44,8 @@ export default function DashboardClient({ year }: { year: string }) {
         ))}
       </div>
 
-      {activeTab === 'Leaderboard' && <LeaderboardView predictions={d.predictions ?? []} playoffLeaders={d.playoffLeaders ?? []} series={d.series ?? []} seriesStats={d.seriesStats ?? []} />}
+      {activeTab === 'Rankings' && <RankingsView predictions={d.predictions ?? []} playoffLeaders={d.playoffLeaders ?? []} />}
+      {activeTab === 'Statistics' && <StatisticsView series={d.series ?? []} seriesStats={d.seriesStats ?? []} snackStats={d.snackStats ?? []} generalStats={d.generalStats ?? []} mvpStats={d.mvpStats ?? []} />}
       {activeTab === 'Bracket' && <BracketView series={d.series ?? []} seriesStats={d.seriesStats ?? []} />}
       {activeTab === 'My picks' && <MyPicksView predictions={d.predictions ?? []} series={d.series ?? []} playoffLeaders={d.playoffLeaders ?? []} generalConfig={d.generalConfig} snackQuestions={d.snackQuestions ?? []} />}
       {activeTab === 'Deni tracker' && <DeniTracker />}
@@ -49,61 +53,34 @@ export default function DashboardClient({ year }: { year: string }) {
   )
 }
 
-function LeaderboardView({ predictions, playoffLeaders, series, seriesStats }: { predictions: Prediction[]; playoffLeaders: { category: string; playerName: string }[]; series: Series[]; seriesStats: SeriesStat[] }) {
+function RankingsView({ predictions, playoffLeaders }: { predictions: Prediction[]; playoffLeaders: { category: string; playerName: string }[] }) {
   const sorted = [...predictions].sort((a, b) => b.totalScore - a.totalScore)
-  const seriesStatsMap = new Map(seriesStats.map(s => [s.seriesId, s]))
 
   return (
     <div className="space-y-6">
-      {/* Series Prediction Statistics */}
-      {series.length > 0 && (
-        <div>
-          <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Series Prediction Accuracy</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {series.map(s => {
-              const stat = seriesStatsMap.get(s.id)
-              return (
-                <div key={s.id} className="bg-white rounded-lg border border-gray-200 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-gray-600">{s.label}</span>
-                    {stat && <span className="text-sm font-bold text-blue-600">{stat.winPercentage}%</span>}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {stat ? `${stat.correctPredictions}/${stat.totalPredictions} correct` : 'No predictions'}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Rankings */}
-      <div>
-        <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Player Rankings</div>
-        <div className="space-y-2">
-          {sorted.map((p, i) => {
-            const rank = i + 1
-            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null
-            const bracketPts = p.seriesPredictions.reduce((sum, sp) => sum + sp.totalScore, 0)
-            const leaderPts = p.leaderPredictions.reduce((sum, lp) => sum + lp.score, 0)
-            const genPts = p.generalPrediction?.score ?? 0
-            const snackPts = p.snackAnswers.reduce((sum, sa) => sum + sa.score, 0)
-            return (
-              <div key={p.userId} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${rank <= 3 ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-100'}`}>
-                <div className="flex items-center gap-3">
-                  <span className="text-lg w-8 text-center">{medal ?? <span className="text-sm text-gray-400">{rank}</span>}</span>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{p.userName}</p>
-                    <p className="text-[11px] text-gray-400">B:{bracketPts} · L:{leaderPts} · G:{genPts} · S:{snackPts}</p>
-                  </div>
+      <div className="space-y-2">
+        {sorted.map((p, i) => {
+          const rank = i + 1
+          const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null
+          const bracketPts = p.seriesPredictions.reduce((sum, sp) => sum + sp.totalScore, 0)
+          const leaderPts = p.leaderPredictions.reduce((sum, lp) => sum + lp.score, 0)
+          const genPts = p.generalPrediction?.score ?? 0
+          const snackPts = p.snackAnswers.reduce((sum, sa) => sum + sa.score, 0)
+          return (
+            <div key={p.userId} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${rank <= 3 ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-100'}`}>
+              <div className="flex items-center gap-3">
+                <span className="text-lg w-8 text-center">{medal ?? <span className="text-sm text-gray-400">{rank}</span>}</span>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{p.userName}</p>
+                  <p className="text-[11px] text-gray-400">B:{bracketPts} · L:{leaderPts} · G:{genPts} · S:{snackPts}</p>
                 </div>
-                <span className="text-lg font-bold text-gray-900">{p.totalScore}</span>
               </div>
-            )
-          })}
-          {sorted.length === 0 && <div className="text-center py-8 text-sm text-gray-400">No predictions yet.</div>}
-        </div>
+              <span className="text-lg font-bold text-gray-900">{p.totalScore}</span>
+            </div>
+          )
+        })}
+        {sorted.length === 0 && <div className="text-center py-8 text-sm text-gray-400">No predictions yet.</div>}
       </div>
 
       {/* Stat Leaders Top 3 */}
@@ -127,6 +104,104 @@ function LeaderboardView({ predictions, playoffLeaders, series, seriesStats }: {
     </div>
   )
 }
+
+function StatisticsView({ series, seriesStats, snackStats, generalStats, mvpStats }: { series: Series[]; seriesStats: SeriesStat[]; snackStats: SnackStat[]; generalStats: GeneralStat[]; mvpStats: MvpStat[] }) {
+  const seriesStatsMap = new Map(seriesStats.map(s => [s.seriesId, s]))
+
+  return (
+    <div className="space-y-6">
+      {/* Series Prediction Statistics */}
+      {seriesStats.length > 0 && (
+        <div>
+          <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Series Predictions</div>
+          <div className="space-y-3">
+            {series.map(s => {
+              const stat = seriesStatsMap.get(s.id)
+              return (
+                <div key={s.id} className="bg-white rounded-lg border border-gray-200 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-gray-700">{s.homeTeam.abbr} vs {s.awayTeam.abbr}</span>
+                      <span className="text-xs text-gray-400">{s.label}</span>
+                    </div>
+                    {stat && <span className="text-sm font-bold text-blue-600">{stat.winPercentage}%</span>}
+                  </div>
+                  {stat && <div className="text-xs text-gray-500">{stat.correctPredictions}/{stat.totalPredictions} correct</div>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Yes/No Questions Accuracy */}
+      {snackStats.filter(s => s.result !== null).length > 0 && (
+        <div>
+          <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Yes/No Predictions</div>
+          <div className="space-y-2">
+            {snackStats.filter(s => s.result !== null).map(stat => (
+              <div key={stat.questionId} className="bg-white rounded-lg border border-gray-200 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm text-gray-700">{stat.question}</span>
+                  {stat.accuracy !== null && <span className="text-sm font-bold text-blue-600">{stat.accuracy}%</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${stat.result ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                    {stat.result ? 'Yes' : 'No'}
+                  </span>
+                  {stat.accuracy !== null && <span className="text-xs text-gray-500">{stat.correctCount}/{stat.totalCount}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* General Questions Accuracy */}
+      {generalStats.filter(s => s.result !== null).length > 0 && (
+        <div>
+          <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">General Predictions</div>
+          <div className="space-y-2">
+            {generalStats.filter(s => s.result !== null).map(stat => (
+              <div key={stat.key} className="bg-white rounded-lg border border-gray-200 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm text-gray-700">{stat.label}</span>
+                  {stat.accuracy !== null && <span className="text-sm font-bold text-blue-600">{stat.accuracy}%</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{stat.result}</span>
+                  {stat.accuracy !== null && <span className="text-xs text-gray-500">{stat.correctCount}/{stat.totalCount}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* MVP Predictions Accuracy */}
+      {mvpStats.filter(m => m.leader).length > 0 && (
+        <div>
+          <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">MVP Predictions</div>
+          <div className="space-y-2">
+            {mvpStats.filter(m => m.leader).map(stat => (
+              <div key={stat.role} className="bg-white rounded-lg border border-gray-200 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm text-gray-700">{stat.label}</span>
+                  <span className="text-sm font-bold text-blue-600">{stat.accuracy}%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded">🥇 {stat.leader}</span>
+                  <span className="text-xs text-gray-500">{stat.correctCount}/{stat.totalCount}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 
 function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: SeriesStat[] }) {
   const rounds = [1, 2, 3, 4]

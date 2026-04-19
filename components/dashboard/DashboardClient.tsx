@@ -6,7 +6,7 @@ import { useDashboard } from '@/hooks/useDashboard'
 interface Team { id: string; name: string; abbr: string; seed: number; color: string }
 interface Series { id: string; round: number; conference: string; label: string; homeTeam: Team; awayTeam: Team; winnerId: string | null; gameCount: number | null; leadingScorer: string | null; isComplete: boolean }
 interface Prediction { userId: string; userName: string; totalScore: number; seriesPredictions: { seriesId: string; winnerId: string; gameCount: number; leadingScorer: string; winnerScore: number; gamesScore: number; scorerScore: number; bonusApplied: boolean; totalScore: number }[]; leaderPredictions: { category: string; playerName: string; score: number }[]; generalPrediction: { answers: Record<string, number>; score: number } | null; snackAnswers: { questionId: number; answer: boolean; score: number }[] }
-interface SeriesStat { seriesId: string; homeTeam: string; awayTeam: string; homeTeamColor: string; awayTeamColor: string; winPercentage: number; correctPredictions: number; totalPredictions: number; homePickCount: number; awayPickCount: number; majorityTeamAbbr: string; majorityPickPercentage: number; statusText: string; homeWins: number; awayWins: number; leadingScorer: string | null }
+interface SeriesStat { seriesId: string; homeTeam: string; awayTeam: string; homeTeamColor: string; awayTeamColor: string; winPercentage: number; correctPredictions: number; totalPredictions: number; homePickCount: number; awayPickCount: number; majorityTeamAbbr: string; majorityPickPercentage: number; statusText: string; homeWins: number; awayWins: number; leadingScorer: string | null; currentTopScorer: string | null; currentTopScorerAvgPts: number | null }
 interface SnackStat { questionId: number; question: string; result: boolean | null; accuracy: number | null; correctCount: number; totalCount: number; yesCount: number; noCount: number; missingCount: number; totalParticipants: number }
 interface GeneralStat { key: string; label: string; result: number | null; accuracy: number | null; correctCount: number; totalCount: number; distribution: { value: number; count: number }[]; missingCount: number; totalParticipants: number }
 interface MvpStat { role: string; label: string; leader: string | null; accuracy: number | null; correctCount: number; totalCount: number; totalParticipants: number; missingCount: number; distribution: { playerName: string; count: number }[] }
@@ -27,18 +27,41 @@ function scorerAvatarUrl(name: string): string {
   return `https://ui-avatars.com/api/?name=${encoded}&background=0f172a&color=ffffff&size=64&bold=true`
 }
 
-function getSeriesBarColors(seriesId: string): { home: string; away: string } {
-  const palettes = [
-    { home: '#1d4ed8', away: '#f97316' },
-    { home: '#16a34a', away: '#dc2626' },
-    { home: '#7c3aed', away: '#0891b2' },
-    { home: '#0f766e', away: '#d97706' },
-    { home: '#be185d', away: '#0ea5e9' },
-    { home: '#4338ca', away: '#ea580c' },
-  ]
+const TEAM_LOGOS: Record<string, string> = {
+  ATL: 'https://cdn.nba.com/logos/nba/1610612737/primary/L/logo.svg',
+  BOS: 'https://cdn.nba.com/logos/nba/1610612738/primary/L/logo.svg',
+  BKN: 'https://cdn.nba.com/logos/nba/1610612751/primary/L/logo.svg',
+  CHA: 'https://cdn.nba.com/logos/nba/1610612766/primary/L/logo.svg',
+  CHI: 'https://cdn.nba.com/logos/nba/1610612741/primary/L/logo.svg',
+  CLE: 'https://cdn.nba.com/logos/nba/1610612739/primary/L/logo.svg',
+  DAL: 'https://cdn.nba.com/logos/nba/1610612742/primary/L/logo.svg',
+  DEN: 'https://cdn.nba.com/logos/nba/1610612743/primary/L/logo.svg',
+  DET: 'https://cdn.nba.com/logos/nba/1610612765/primary/L/logo.svg',
+  GSW: 'https://cdn.nba.com/logos/nba/1610612744/primary/L/logo.svg',
+  HOU: 'https://cdn.nba.com/logos/nba/1610612745/primary/L/logo.svg',
+  IND: 'https://cdn.nba.com/logos/nba/1610612754/primary/L/logo.svg',
+  LAC: 'https://cdn.nba.com/logos/nba/1610612746/primary/L/logo.svg',
+  LAL: 'https://cdn.nba.com/logos/nba/1610612747/primary/L/logo.svg',
+  MEM: 'https://cdn.nba.com/logos/nba/1610612763/primary/L/logo.svg',
+  MIA: 'https://cdn.nba.com/logos/nba/1610612748/primary/L/logo.svg',
+  MIL: 'https://cdn.nba.com/logos/nba/1610612749/primary/L/logo.svg',
+  MIN: 'https://cdn.nba.com/logos/nba/1610612750/primary/L/logo.svg',
+  NOP: 'https://cdn.nba.com/logos/nba/1610612740/primary/L/logo.svg',
+  NYK: 'https://cdn.nba.com/logos/nba/1610612752/primary/L/logo.svg',
+  OKC: 'https://cdn.nba.com/logos/nba/1610612760/primary/L/logo.svg',
+  ORL: 'https://cdn.nba.com/logos/nba/1610612753/primary/L/logo.svg',
+  PHI: 'https://cdn.nba.com/logos/nba/1610612755/primary/L/logo.svg',
+  PHX: 'https://cdn.nba.com/logos/nba/1610612756/primary/L/logo.svg',
+  POR: 'https://cdn.nba.com/logos/nba/1610612757/primary/L/logo.svg',
+  SAC: 'https://cdn.nba.com/logos/nba/1610612758/primary/L/logo.svg',
+  SAS: 'https://cdn.nba.com/logos/nba/1610612759/primary/L/logo.svg',
+  TOR: 'https://cdn.nba.com/logos/nba/1610612761/primary/L/logo.svg',
+  UTA: 'https://cdn.nba.com/logos/nba/1610612762/primary/L/logo.svg',
+  WAS: 'https://cdn.nba.com/logos/nba/1610612764/primary/L/logo.svg',
+}
 
-  const hash = Array.from(seriesId).reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
-  return palettes[hash % palettes.length]
+function teamLogoUrl(abbr: string): string {
+  return TEAM_LOGOS[abbr] ?? 'https://cdn.nba.com/logos/nba/1610612737/primary/L/logo.svg'
 }
 
 const TABS = ['Rankings', 'Statistics', 'Bracket', 'My picks', 'Deni tracker'] as const
@@ -317,7 +340,6 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
             <div className="space-y-3">
               {rs.map(s => {
                 const stat = seriesStatsMap.get(s.id)
-                const barColors = getSeriesBarColors(s.id)
                 return (
                   <div key={s.id} className="bg-white rounded-xl border border-gray-200 p-4">
                     <div className="flex items-center justify-between mb-2">
@@ -344,7 +366,11 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
                         const teamWins = team.id === s.homeTeam.id ? stat?.homeWins : stat?.awayWins
                         return (
                           <div key={team.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isWinner ? 'bg-green-50 border border-green-200' : s.isComplete ? 'bg-gray-50 border border-gray-100 opacity-50' : 'bg-gray-50 border border-gray-100'}`}>
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: team.color }} />
+                            <img
+                              src={teamLogoUrl(team.abbr)}
+                              alt={team.abbr}
+                              className="w-4 h-4"
+                            />
                             <span className={`text-sm font-medium ${isWinner ? 'text-green-800' : 'text-gray-600'}`}>{team.abbr}</span>
                             <span className="text-[11px] text-gray-400">#{team.seed}</span>
                             {typeof teamWins === 'number' && teamWins > 0 && (
@@ -355,23 +381,26 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
                       })}
                     </div>
 
-                    {stat?.leadingScorer && (
+                    {(stat?.currentTopScorer || stat?.leadingScorer) && (
                       <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
                         <img
-                          src={scorerAvatarUrl(stat.leadingScorer)}
-                          alt={stat.leadingScorer}
+                          src={scorerAvatarUrl(stat.currentTopScorer ?? stat.leadingScorer ?? '')}
+                          alt={stat.currentTopScorer ?? stat.leadingScorer ?? ''}
                           className="w-6 h-6 rounded-full border border-gray-200"
                         />
                         <span>
-                          Top scorer: <span className="font-medium text-gray-700">{stat.leadingScorer}</span>
+                          Top scorer: <span className="font-medium text-gray-700">{stat.currentTopScorer ?? stat.leadingScorer}</span>
+                          {typeof stat?.currentTopScorerAvgPts === 'number' && (
+                            <span className="text-gray-500"> ({stat.currentTopScorerAvgPts} PPG)</span>
+                          )}
                         </span>
                       </div>
                     )}
 
                     {stat && (
                       <div className="mt-3 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden flex">
-                        <div className="h-full" style={{ backgroundColor: barColors.home, width: `${stat.totalPredictions > 0 ? (stat.homePickCount / stat.totalPredictions) * 100 : 0}%` }} />
-                        <div className="h-full" style={{ backgroundColor: barColors.away, width: `${stat.totalPredictions > 0 ? (stat.awayPickCount / stat.totalPredictions) * 100 : 0}%` }} />
+                        <div className="h-full" style={{ backgroundColor: '#0072B2', width: `${stat.totalPredictions > 0 ? (stat.homePickCount / stat.totalPredictions) * 100 : 0}%` }} />
+                        <div className="h-full" style={{ backgroundColor: '#E69F00', width: `${stat.totalPredictions > 0 ? (stat.awayPickCount / stat.totalPredictions) * 100 : 0}%` }} />
                       </div>
                     )}
                   </div>

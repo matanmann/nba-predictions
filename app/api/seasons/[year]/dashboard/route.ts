@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { isLocked, getLockTime } from "@/lib/lock";
 import { getPlayoffGames } from "@/lib/nba-api";
+import { getPlayoffStats } from "@/lib/nba-api";
 
 function normalizeQuestion(question: string): string {
   return question.trim().toLowerCase();
@@ -63,26 +64,63 @@ export async function GET(
   );
 
   const bdlSeason = y - 1;
-  let gamesBySeriesKey = new Map<string, { teamAWins: number; teamBWins: number; totalGames: number }>();
+  let gamesBySeriesKey = new Map<string, { teamAWins: number; teamBWins: number; totalGames: number; gameIds: number[] }>();
+  let scorerBySeriesKey = new Map<string, { name: string; avgPts: number }>();
   try {
-    const playoffGames = await getPlayoffGames(bdlSeason);
+    const [playoffGames, playoffStats] = await Promise.all([
+      getPlayoffGames(bdlSeason),
+      getPlayoffStats(bdlSeason),
+    ]);
     const completedGames = playoffGames.filter((game) => game.status === "Final");
     for (const game of completedGames) {
       const homeAbbr = game.home_team.abbreviation;
       const awayAbbr = game.visitor_team.abbreviation;
       const [teamA, teamB] = [homeAbbr, awayAbbr].sort();
       const key = `${teamA}__${teamB}`;
-      const current = gamesBySeriesKey.get(key) ?? { teamAWins: 0, teamBWins: 0, totalGames: 0 };
+      const current = gamesBySeriesKey.get(key) ?? { teamAWins: 0, teamBWins: 0, totalGames: 0, gameIds: [] };
       const winnerAbbr = game.home_team_score > game.visitor_team_score ? homeAbbr : awayAbbr;
       gamesBySeriesKey.set(key, {
         teamAWins: current.teamAWins + (winnerAbbr === teamA ? 1 : 0),
         teamBWins: current.teamBWins + (winnerAbbr === teamB ? 1 : 0),
         totalGames: current.totalGames + 1,
+        gameIds: [...current.gameIds, game.id],
       });
+    }
+
+    for (const [seriesKey, seriesProgress] of gamesBySeriesKey.entries()) {
+      const relevantStats = playoffStats.filter((stat) =>
+        seriesProgress.gameIds.includes(stat.game.id)
+      );
+
+      const playerAgg = new Map<number, { name: string; points: number; games: Set<number> }>();
+      for (const stat of relevantStats) {
+        const existing = playerAgg.get(stat.player.id) ?? {
+          name: `${stat.player.first_name} ${stat.player.last_name}`,
+          points: 0,
+          games: new Set<number>(),
+        };
+        existing.points += stat.pts ?? 0;
+        existing.games.add(stat.game.id);
+        playerAgg.set(stat.player.id, existing);
+      }
+
+      let top: { name: string; avgPts: number; totalPts: number } | null = null;
+      for (const player of playerAgg.values()) {
+        const gamesPlayed = player.games.size || 1;
+        const avgPts = player.points / gamesPlayed;
+        if (!top || player.points > top.totalPts) {
+          top = { name: player.name, avgPts, totalPts: player.points };
+        }
+      }
+
+      if (top) {
+        scorerBySeriesKey.set(seriesKey, { name: top.name, avgPts: Number(top.avgPts.toFixed(1)) });
+      }
     }
   } catch {
     // If API fetch fails, we still return dashboard data without live series status.
     gamesBySeriesKey = new Map();
+    scorerBySeriesKey = new Map();
   }
 
   // Calculate series statistics with team names
@@ -108,6 +146,7 @@ export async function GET(
     const [teamA, teamB] = [s.homeTeam.abbr, s.awayTeam.abbr].sort();
     const seriesKey = `${teamA}__${teamB}`;
     const progress = gamesBySeriesKey.get(seriesKey);
+    const topScorer = scorerBySeriesKey.get(seriesKey);
     const homeWins = progress
       ? (s.homeTeam.abbr === teamA ? progress.teamAWins : progress.teamBWins)
       : 0;
@@ -144,6 +183,8 @@ export async function GET(
       homeWins,
       awayWins,
       leadingScorer: s.leadingScorer,
+      currentTopScorer: topScorer?.name ?? null,
+      currentTopScorerAvgPts: topScorer?.avgPts ?? null,
     };
   });
 

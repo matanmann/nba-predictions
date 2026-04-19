@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { isLocked, getLockTime } from "@/lib/lock";
+import { getPlayoffGames } from "@/lib/nba-api";
 
 function normalizeQuestion(question: string): string {
   return question.trim().toLowerCase();
@@ -61,14 +62,64 @@ export async function GET(
     season.snackQuestions.map((question) => [String(question.id), question.question])
   );
 
+  const bdlSeason = y - 1;
+  let gamesBySeriesKey = new Map<string, { homeWins: number; awayWins: number; totalGames: number }>();
+  try {
+    const playoffGames = await getPlayoffGames(bdlSeason);
+    const completedGames = playoffGames.filter((game) => game.status === "Final");
+    for (const game of completedGames) {
+      const homeId = String(game.home_team.id);
+      const awayId = String(game.visitor_team.id);
+      const key = [homeId, awayId].sort().join("__");
+      const current = gamesBySeriesKey.get(key) ?? { homeWins: 0, awayWins: 0, totalGames: 0 };
+      const homeWon = game.home_team_score > game.visitor_team_score;
+      gamesBySeriesKey.set(key, {
+        homeWins: current.homeWins + (homeWon ? 1 : 0),
+        awayWins: current.awayWins + (!homeWon ? 1 : 0),
+        totalGames: current.totalGames + 1,
+      });
+    }
+  } catch {
+    // If API fetch fails, we still return dashboard data without live series status.
+    gamesBySeriesKey = new Map();
+  }
+
   // Calculate series statistics with team names
   const seriesStats = season.series.map(s => {
+    const homePickCount = season.predictions.filter((prediction) =>
+      prediction.seriesPredictions.some((sp) => sp.seriesId === s.id && sp.winnerId === s.homeTeamId)
+    ).length;
+    const awayPickCount = season.predictions.filter((prediction) =>
+      prediction.seriesPredictions.some((sp) => sp.seriesId === s.id && sp.winnerId === s.awayTeamId)
+    ).length;
+
     const correctPredictions = season.predictions.filter(p =>
       p.seriesPredictions.some(sp => sp.seriesId === s.id && sp.winnerId === s.winnerId && s.winnerId)
     ).length;
     const totalPredictions = season.predictions.filter(p =>
       p.seriesPredictions.some(sp => sp.seriesId === s.id)
     ).length;
+
+    const majorityTeam = homePickCount >= awayPickCount ? s.homeTeam : s.awayTeam;
+    const majorityPickCount = Math.max(homePickCount, awayPickCount);
+    const majorityPickPercentage = totalPredictions > 0 ? Math.round((majorityPickCount / totalPredictions) * 100) : 0;
+
+    const seriesKey = [s.homeTeamId, s.awayTeamId].sort().join("__");
+    const progress = gamesBySeriesKey.get(seriesKey);
+    const homeWins = progress?.homeWins ?? 0;
+    const awayWins = progress?.awayWins ?? 0;
+
+    let statusText = "Not started";
+    if (s.isComplete && s.winnerId) {
+      const winnerTeam = s.winnerId === s.homeTeamId ? s.homeTeam : s.awayTeam;
+      statusText = `${winnerTeam.abbr} won ${s.gameCount ?? `${homeWins + awayWins}`}-game series`;
+    } else if (homeWins > 0 || awayWins > 0) {
+      const leader = homeWins === awayWins ? null : (homeWins > awayWins ? s.homeTeam : s.awayTeam);
+      statusText = leader
+        ? `${leader.abbr} lead ${Math.max(homeWins, awayWins)}-${Math.min(homeWins, awayWins)}`
+        : `Tied ${homeWins}-${awayWins}`;
+    }
+
     const winPercentage = totalPredictions > 0 ? Math.round((correctPredictions / totalPredictions) * 100) : 0;
     return {
       seriesId: s.id,
@@ -79,6 +130,14 @@ export async function GET(
       winPercentage,
       correctPredictions,
       totalPredictions,
+      homePickCount,
+      awayPickCount,
+      majorityTeamAbbr: majorityTeam.abbr,
+      majorityPickPercentage,
+      statusText,
+      homeWins,
+      awayWins,
+      leadingScorer: s.leadingScorer,
     };
   });
 
@@ -189,9 +248,20 @@ export async function GET(
         return lp.category === roleToCategory[mvp.role];
       }).map(lp => lp.playerName)
     );
+
+    const distributionMap = new Map<string, number>();
+    for (const playerName of predictions) {
+      distributionMap.set(playerName, (distributionMap.get(playerName) ?? 0) + 1);
+    }
+    const distribution = Array.from(distributionMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([playerName, count]) => ({ playerName, count }));
+
     const actualLeader = season.playoffLeaders.find(l => {
       return l.category === roleToCategory[mvp.role];
     })?.playerName;
+    const totalParticipants = season.predictions.length;
+    const missingCount = Math.max(totalParticipants - predictions.length, 0);
 
     const correctCount = actualLeader
       ? predictions.filter(p => p === actualLeader).length
@@ -199,7 +269,17 @@ export async function GET(
     const accuracy = actualLeader && predictions.length > 0
       ? Math.round((correctCount / predictions.length) * 100)
       : null;
-    return { role: mvp.role, label: mvp.label, leader: actualLeader, accuracy, correctCount, totalCount: predictions.length };
+    return {
+      role: mvp.role,
+      label: mvp.label,
+      leader: actualLeader,
+      accuracy,
+      correctCount,
+      totalCount: predictions.length,
+      totalParticipants,
+      missingCount,
+      distribution,
+    };
   });
 
   return NextResponse.json({

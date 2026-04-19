@@ -6,10 +6,10 @@ import { useDashboard } from '@/hooks/useDashboard'
 interface Team { id: string; name: string; abbr: string; seed: number; color: string }
 interface Series { id: string; round: number; conference: string; label: string; homeTeam: Team; awayTeam: Team; winnerId: string | null; gameCount: number | null; leadingScorer: string | null; isComplete: boolean }
 interface Prediction { userId: string; userName: string; totalScore: number; seriesPredictions: { seriesId: string; winnerId: string; gameCount: number; leadingScorer: string; winnerScore: number; gamesScore: number; scorerScore: number; bonusApplied: boolean; totalScore: number }[]; leaderPredictions: { category: string; playerName: string; score: number }[]; generalPrediction: { answers: Record<string, number>; score: number } | null; snackAnswers: { questionId: number; answer: boolean; score: number }[] }
-interface SeriesStat { seriesId: string; homeTeam: string; awayTeam: string; homeTeamColor: string; awayTeamColor: string; winPercentage: number; correctPredictions: number; totalPredictions: number }
+interface SeriesStat { seriesId: string; homeTeam: string; awayTeam: string; homeTeamColor: string; awayTeamColor: string; winPercentage: number; correctPredictions: number; totalPredictions: number; homePickCount: number; awayPickCount: number; majorityTeamAbbr: string; majorityPickPercentage: number; statusText: string; homeWins: number; awayWins: number; leadingScorer: string | null }
 interface SnackStat { questionId: number; question: string; result: boolean | null; accuracy: number | null; correctCount: number; totalCount: number; yesCount: number; noCount: number; missingCount: number; totalParticipants: number }
 interface GeneralStat { key: string; label: string; result: number | null; accuracy: number | null; correctCount: number; totalCount: number; distribution: { value: number; count: number }[]; missingCount: number; totalParticipants: number }
-interface MvpStat { role: string; label: string; leader: string | null; accuracy: number | null; correctCount: number; totalCount: number }
+interface MvpStat { role: string; label: string; leader: string | null; accuracy: number | null; correctCount: number; totalCount: number; totalParticipants: number; missingCount: number; distribution: { playerName: string; count: number }[] }
 interface DashboardData { locked?: boolean; season?: { year: number; lockedAt: string }; series?: Series[]; playoffLeaders?: { category: string; playerName: string }[]; generalConfig?: { questions: { key: string; label: string }[]; results: Record<string, number> | null }; snackQuestions?: { id: number; question: string; result: boolean | null; order: number }[]; snackQuestionLookup?: Record<string, string>; predictions?: Prediction[]; seriesStats?: SeriesStat[]; snackStats?: SnackStat[]; generalStats?: GeneralStat[]; mvpStats?: MvpStat[] }
 
 const MVP_CATEGORY_LABELS: Record<string, string> = {
@@ -20,6 +20,11 @@ const MVP_CATEGORY_LABELS: Record<string, string> = {
 
 function normalizeQuestion(question: string): string {
   return question.trim().toLowerCase()
+}
+
+function scorerAvatarUrl(name: string): string {
+  const encoded = encodeURIComponent(name)
+  return `https://ui-avatars.com/api/?name=${encoded}&background=0f172a&color=ffffff&size=64&bold=true`
 }
 
 const TABS = ['Rankings', 'Statistics', 'Bracket', 'My picks', 'Deni tracker'] as const
@@ -56,7 +61,7 @@ export default function DashboardClient({ year }: { year: string }) {
       </div>
 
       {activeTab === 'Rankings' && <RankingsView predictions={d.predictions ?? []} playoffLeaders={d.playoffLeaders ?? []} onSelectPrediction={setSelectedPrediction} />}
-      {activeTab === 'Statistics' && <StatisticsView series={d.series ?? []} seriesStats={d.seriesStats ?? []} snackStats={d.snackStats ?? []} generalStats={d.generalStats ?? []} mvpStats={d.mvpStats ?? []} />}
+      {activeTab === 'Statistics' && <StatisticsView snackStats={d.snackStats ?? []} generalStats={d.generalStats ?? []} mvpStats={d.mvpStats ?? []} />}
       {activeTab === 'Bracket' && <BracketView series={d.series ?? []} seriesStats={d.seriesStats ?? []} />}
       {activeTab === 'My picks' && <MyPicksView predictions={d.predictions ?? []} series={d.series ?? []} playoffLeaders={d.playoffLeaders ?? []} generalConfig={d.generalConfig} snackQuestions={d.snackQuestions ?? []} />}
       {activeTab === 'Deni tracker' && <DeniTracker />}
@@ -135,35 +140,9 @@ function RankingsView({ predictions, playoffLeaders, onSelectPrediction }: { pre
   )
 }
 
-function StatisticsView({ series, seriesStats, snackStats, generalStats, mvpStats }: { series: Series[]; seriesStats: SeriesStat[]; snackStats: SnackStat[]; generalStats: GeneralStat[]; mvpStats: MvpStat[] }) {
-  const seriesStatsMap = new Map(seriesStats.map(s => [s.seriesId, s]))
-
+function StatisticsView({ snackStats, generalStats, mvpStats }: { snackStats: SnackStat[]; generalStats: GeneralStat[]; mvpStats: MvpStat[] }) {
   return (
     <div className="space-y-6">
-      {/* Series Prediction Statistics */}
-      {seriesStats.length > 0 && (
-        <div>
-          <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Series Predictions</div>
-          <div className="space-y-3">
-            {series.map(s => {
-              const stat = seriesStatsMap.get(s.id)
-              return (
-                <div key={s.id} className="bg-white rounded-lg border border-gray-200 p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-gray-700">{s.homeTeam.abbr} vs {s.awayTeam.abbr}</span>
-                      <span className="text-xs text-gray-400">{s.label}</span>
-                    </div>
-                    {stat && <span className="text-sm font-bold text-blue-600">{stat.winPercentage}%</span>}
-                  </div>
-                  {stat && <div className="text-xs text-gray-500">{stat.correctPredictions}/{stat.totalPredictions} correct</div>}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Yes/No Questions Accuracy */}
       {snackStats.length > 0 && (
         <div>
@@ -278,6 +257,26 @@ function StatisticsView({ series, seriesStats, snackStats, generalStats, mvpStat
                   </span>
                   <span className="text-xs text-gray-500">{stat.correctCount}/{stat.totalCount}</span>
                 </div>
+
+                <div className="mt-3 space-y-1.5">
+                  {stat.distribution.length === 0 ? (
+                    <p className="text-[11px] text-gray-500">No MVP picks yet</p>
+                  ) : (
+                    stat.distribution.slice(0, 5).map((bucket) => (
+                      <div key={`${stat.role}-${bucket.playerName}`} className="flex items-center gap-2">
+                        <span className="min-w-[110px] text-[11px] text-gray-600 truncate" title={bucket.playerName}>{bucket.playerName}</span>
+                        <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+                          <div
+                            className="h-full bg-amber-500"
+                            style={{ width: `${stat.totalCount > 0 ? (bucket.count / stat.totalCount) * 100 : 0}%` }}
+                          />
+                        </div>
+                        <span className="w-8 text-[11px] text-gray-500">{bucket.count}</span>
+                      </div>
+                    ))
+                  )}
+                  <div className="text-[11px] text-gray-500">Pending picks: {stat.missingCount}</div>
+                </div>
               </div>
             ))}
           </div>
@@ -310,7 +309,7 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
                       <span className="text-[11px] text-gray-400">{s.label}</span>
                       <div className="flex items-center gap-2">
                         {stat && (
-                          <span className="text-[11px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{stat.winPercentage}% correct</span>
+                          <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">{stat.majorityPickPercentage}% picked {stat.majorityTeamAbbr}</span>
                         )}
                         {s.isComplete ? (
                           <span className="text-[11px] font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Final · {s.gameCount} games</span>
@@ -319,20 +318,46 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
                         )}
                       </div>
                     </div>
+
+                    <div className="mb-3 text-xs text-gray-600 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
+                      {stat?.statusText ?? 'In progress'}
+                    </div>
+
                     <div className="grid grid-cols-2 gap-2">
                       {[s.homeTeam, s.awayTeam].map(team => {
                         const isWinner = s.winnerId === team.id
+                        const teamWins = team.id === s.homeTeam.id ? stat?.homeWins : stat?.awayWins
                         return (
                           <div key={team.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isWinner ? 'bg-green-50 border border-green-200' : s.isComplete ? 'bg-gray-50 border border-gray-100 opacity-50' : 'bg-gray-50 border border-gray-100'}`}>
                             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: team.color }} />
                             <span className={`text-sm font-medium ${isWinner ? 'text-green-800' : 'text-gray-600'}`}>{team.abbr}</span>
                             <span className="text-[11px] text-gray-400">#{team.seed}</span>
+                            {typeof teamWins === 'number' && teamWins > 0 && (
+                              <span className="ml-auto text-[11px] font-medium text-gray-500">{teamWins}W</span>
+                            )}
                           </div>
                         )
                       })}
                     </div>
-                    {s.isComplete && s.leadingScorer && (
-                      <div className="mt-2 text-xs text-gray-500">Leading scorer: <span className="font-medium text-gray-700">{s.leadingScorer}</span></div>
+
+                    {stat?.leadingScorer && (
+                      <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                        <img
+                          src={scorerAvatarUrl(stat.leadingScorer)}
+                          alt={stat.leadingScorer}
+                          className="w-6 h-6 rounded-full border border-gray-200"
+                        />
+                        <span>
+                          Top scorer: <span className="font-medium text-gray-700">{stat.leadingScorer}</span>
+                        </span>
+                      </div>
+                    )}
+
+                    {stat && (
+                      <div className="mt-3 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden flex">
+                        <div className="h-full bg-blue-500" style={{ width: `${stat.totalPredictions > 0 ? (stat.homePickCount / stat.totalPredictions) * 100 : 0}%` }} />
+                        <div className="h-full bg-purple-500" style={{ width: `${stat.totalPredictions > 0 ? (stat.awayPickCount / stat.totalPredictions) * 100 : 0}%` }} />
+                      </div>
                     )}
                   </div>
                 )

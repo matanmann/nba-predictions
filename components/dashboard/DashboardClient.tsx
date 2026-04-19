@@ -27,6 +27,20 @@ function scorerAvatarUrl(name: string): string {
   return `https://ui-avatars.com/api/?name=${encoded}&background=0f172a&color=ffffff&size=64&bold=true`
 }
 
+function getSeriesBarColors(seriesId: string): { home: string; away: string } {
+  const palettes = [
+    { home: '#1d4ed8', away: '#f97316' },
+    { home: '#16a34a', away: '#dc2626' },
+    { home: '#7c3aed', away: '#0891b2' },
+    { home: '#0f766e', away: '#d97706' },
+    { home: '#be185d', away: '#0ea5e9' },
+    { home: '#4338ca', away: '#ea580c' },
+  ]
+
+  const hash = Array.from(seriesId).reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
+  return palettes[hash % palettes.length]
+}
+
 const TABS = ['Rankings', 'Statistics', 'Bracket', 'My picks', 'Deni tracker'] as const
 type Tab = typeof TABS[number]
 
@@ -303,6 +317,7 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
             <div className="space-y-3">
               {rs.map(s => {
                 const stat = seriesStatsMap.get(s.id)
+                const barColors = getSeriesBarColors(s.id)
                 return (
                   <div key={s.id} className="bg-white rounded-xl border border-gray-200 p-4">
                     <div className="flex items-center justify-between mb-2">
@@ -355,8 +370,8 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
 
                     {stat && (
                       <div className="mt-3 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden flex">
-                        <div className="h-full bg-blue-500" style={{ width: `${stat.totalPredictions > 0 ? (stat.homePickCount / stat.totalPredictions) * 100 : 0}%` }} />
-                        <div className="h-full bg-purple-500" style={{ width: `${stat.totalPredictions > 0 ? (stat.awayPickCount / stat.totalPredictions) * 100 : 0}%` }} />
+                        <div className="h-full" style={{ backgroundColor: barColors.home, width: `${stat.totalPredictions > 0 ? (stat.homePickCount / stat.totalPredictions) * 100 : 0}%` }} />
+                        <div className="h-full" style={{ backgroundColor: barColors.away, width: `${stat.totalPredictions > 0 ? (stat.awayPickCount / stat.totalPredictions) * 100 : 0}%` }} />
                       </div>
                     )}
                   </div>

@@ -63,19 +63,20 @@ export async function GET(
   );
 
   const bdlSeason = y - 1;
-  let gamesBySeriesKey = new Map<string, { homeWins: number; awayWins: number; totalGames: number }>();
+  let gamesBySeriesKey = new Map<string, { teamAWins: number; teamBWins: number; totalGames: number }>();
   try {
     const playoffGames = await getPlayoffGames(bdlSeason);
     const completedGames = playoffGames.filter((game) => game.status === "Final");
     for (const game of completedGames) {
-      const homeId = String(game.home_team.id);
-      const awayId = String(game.visitor_team.id);
-      const key = [homeId, awayId].sort().join("__");
-      const current = gamesBySeriesKey.get(key) ?? { homeWins: 0, awayWins: 0, totalGames: 0 };
-      const homeWon = game.home_team_score > game.visitor_team_score;
+      const homeAbbr = game.home_team.abbreviation;
+      const awayAbbr = game.visitor_team.abbreviation;
+      const [teamA, teamB] = [homeAbbr, awayAbbr].sort();
+      const key = `${teamA}__${teamB}`;
+      const current = gamesBySeriesKey.get(key) ?? { teamAWins: 0, teamBWins: 0, totalGames: 0 };
+      const winnerAbbr = game.home_team_score > game.visitor_team_score ? homeAbbr : awayAbbr;
       gamesBySeriesKey.set(key, {
-        homeWins: current.homeWins + (homeWon ? 1 : 0),
-        awayWins: current.awayWins + (!homeWon ? 1 : 0),
+        teamAWins: current.teamAWins + (winnerAbbr === teamA ? 1 : 0),
+        teamBWins: current.teamBWins + (winnerAbbr === teamB ? 1 : 0),
         totalGames: current.totalGames + 1,
       });
     }
@@ -104,10 +105,15 @@ export async function GET(
     const majorityPickCount = Math.max(homePickCount, awayPickCount);
     const majorityPickPercentage = totalPredictions > 0 ? Math.round((majorityPickCount / totalPredictions) * 100) : 0;
 
-    const seriesKey = [s.homeTeamId, s.awayTeamId].sort().join("__");
+    const [teamA, teamB] = [s.homeTeam.abbr, s.awayTeam.abbr].sort();
+    const seriesKey = `${teamA}__${teamB}`;
     const progress = gamesBySeriesKey.get(seriesKey);
-    const homeWins = progress?.homeWins ?? 0;
-    const awayWins = progress?.awayWins ?? 0;
+    const homeWins = progress
+      ? (s.homeTeam.abbr === teamA ? progress.teamAWins : progress.teamBWins)
+      : 0;
+    const awayWins = progress
+      ? (s.awayTeam.abbr === teamA ? progress.teamAWins : progress.teamBWins)
+      : 0;
 
     let statusText = "Not started";
     if (s.isComplete && s.winnerId) {
@@ -116,7 +122,7 @@ export async function GET(
     } else if (homeWins > 0 || awayWins > 0) {
       const leader = homeWins === awayWins ? null : (homeWins > awayWins ? s.homeTeam : s.awayTeam);
       statusText = leader
-        ? `${leader.abbr} lead ${Math.max(homeWins, awayWins)}-${Math.min(homeWins, awayWins)}`
+        ? `${leader.abbr} lead ${Math.max(homeWins, awayWins)}-${Math.min(homeWins, awayWins)} (${homeWins + awayWins} games)`
         : `Tied ${homeWins}-${awayWins}`;
     }
 

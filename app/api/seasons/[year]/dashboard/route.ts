@@ -66,12 +66,11 @@ export async function GET(
   const bdlSeason = y - 1;
   let gamesBySeriesKey = new Map<string, { teamAWins: number; teamBWins: number; totalGames: number; gameIds: number[] }>();
   let scorerBySeriesKey = new Map<string, { name: string; avgPts: number }>();
+
+  let completedGames: Awaited<ReturnType<typeof getPlayoffGames>> = [];
   try {
-    const [playoffGames, playoffStats] = await Promise.all([
-      getPlayoffGames(bdlSeason),
-      getPlayoffStats(bdlSeason),
-    ]);
-    const completedGames = playoffGames.filter((game) => game.status === "Final");
+    const playoffGames = await getPlayoffGames(bdlSeason);
+    completedGames = playoffGames.filter((game) => game.status === "Final");
     for (const game of completedGames) {
       const homeAbbr = game.home_team.abbreviation;
       const awayAbbr = game.visitor_team.abbreviation;
@@ -86,7 +85,14 @@ export async function GET(
         gameIds: [...current.gameIds, game.id],
       });
     }
+  } catch {
+    // If games fetch fails, keep empty live status maps and continue with DB-only data.
+    gamesBySeriesKey = new Map();
+  }
 
+  try {
+    if (completedGames.length > 0) {
+      const playoffStats = await getPlayoffStats(bdlSeason);
     for (const [seriesKey, seriesProgress] of gamesBySeriesKey.entries()) {
       const relevantStats = playoffStats.filter((stat) =>
         seriesProgress.gameIds.includes(stat.game.id)
@@ -117,9 +123,9 @@ export async function GET(
         scorerBySeriesKey.set(seriesKey, { name: top.name, avgPts: Number(top.avgPts.toFixed(1)) });
       }
     }
+    }
   } catch {
-    // If API fetch fails, we still return dashboard data without live series status.
-    gamesBySeriesKey = new Map();
+    // If stats fetch fails, keep live series status from games and only omit scorer details.
     scorerBySeriesKey = new Map();
   }
 

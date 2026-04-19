@@ -3,10 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { isLocked, getLockTime } from "@/lib/lock";
 
+function normalizeQuestion(question: string): string {
+  return question.trim().toLowerCase();
+}
+
 function dedupeSnackQuestions<T extends { question: string }>(questions: T[]): T[] {
   const seen = new Set<string>();
   return questions.filter((q) => {
-    const key = q.question.trim().toLowerCase();
+    const key = normalizeQuestion(q.question);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -48,6 +52,14 @@ export async function GET(
   if (!season) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const snackQuestions = dedupeSnackQuestions(season.snackQuestions);
+  const snackQuestionIdsByText = new Map<string, number[]>();
+  for (const question of season.snackQuestions) {
+    const key = normalizeQuestion(question.question);
+    snackQuestionIdsByText.set(key, [...(snackQuestionIdsByText.get(key) ?? []), question.id]);
+  }
+  const snackQuestionLookup = Object.fromEntries(
+    season.snackQuestions.map((question) => [String(question.id), question.question])
+  );
 
   // Calculate series statistics with team names
   const seriesStats = season.series.map(s => {
@@ -72,8 +84,9 @@ export async function GET(
 
   // Calculate yes/no question accuracy
   const snackStats = snackQuestions.map(q => {
+    const relatedQuestionIds = new Set(snackQuestionIdsByText.get(normalizeQuestion(q.question)) ?? [q.id]);
     const answers = season.predictions.flatMap((p) =>
-      p.snackAnswers.filter((sa) => sa.questionId === q.id)
+      p.snackAnswers.filter((sa) => relatedQuestionIds.has(sa.questionId))
     );
     const yesCount = answers.filter((sa) => sa.answer).length;
     const noCount = answers.length - yesCount;
@@ -195,6 +208,7 @@ export async function GET(
     playoffLeaders: season.playoffLeaders,
     generalConfig: season.generalConfig,
     snackQuestions,
+    snackQuestionLookup,
     predictions: season.predictions.map(p => ({
       ...p,
       userName: p.user?.name || 'Unknown',

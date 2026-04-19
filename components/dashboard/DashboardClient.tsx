@@ -10,7 +10,17 @@ interface SeriesStat { seriesId: string; homeTeam: string; awayTeam: string; hom
 interface SnackStat { questionId: number; question: string; result: boolean | null; accuracy: number | null; correctCount: number; totalCount: number; yesCount: number; noCount: number; missingCount: number; totalParticipants: number }
 interface GeneralStat { key: string; label: string; result: number | null; accuracy: number | null; correctCount: number; totalCount: number; distribution: { value: number; count: number }[]; missingCount: number; totalParticipants: number }
 interface MvpStat { role: string; label: string; leader: string | null; accuracy: number | null; correctCount: number; totalCount: number }
-interface DashboardData { locked?: boolean; season?: { year: number; lockedAt: string }; series?: Series[]; playoffLeaders?: { category: string; playerName: string }[]; generalConfig?: { questions: { key: string; label: string }[]; results: Record<string, number> | null }; snackQuestions?: { id: number; question: string; result: boolean | null; order: number }[]; predictions?: Prediction[]; seriesStats?: SeriesStat[]; snackStats?: SnackStat[]; generalStats?: GeneralStat[]; mvpStats?: MvpStat[] }
+interface DashboardData { locked?: boolean; season?: { year: number; lockedAt: string }; series?: Series[]; playoffLeaders?: { category: string; playerName: string }[]; generalConfig?: { questions: { key: string; label: string }[]; results: Record<string, number> | null }; snackQuestions?: { id: number; question: string; result: boolean | null; order: number }[]; snackQuestionLookup?: Record<string, string>; predictions?: Prediction[]; seriesStats?: SeriesStat[]; snackStats?: SnackStat[]; generalStats?: GeneralStat[]; mvpStats?: MvpStat[] }
+
+const MVP_CATEGORY_LABELS: Record<string, string> = {
+  __mvp_east: 'East MVP',
+  __mvp_west: 'West MVP',
+  __mvp_finals: 'Finals MVP',
+}
+
+function normalizeQuestion(question: string): string {
+  return question.trim().toLowerCase()
+}
 
 const TABS = ['Rankings', 'Statistics', 'Bracket', 'My picks', 'Deni tracker'] as const
 type Tab = typeof TABS[number]
@@ -18,6 +28,7 @@ type Tab = typeof TABS[number]
 export default function DashboardClient({ year }: { year: string }) {
   const { data, isLoading } = useDashboard(+year)
   const [activeTab, setActiveTab] = useState<Tab>('Rankings')
+  const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null)
 
   if (isLoading) return <div className="flex items-center justify-center py-20"><div className="text-sm text-gray-400">Loading dashboard...</div></div>
   if (!data || data.locked === false) {
@@ -44,16 +55,27 @@ export default function DashboardClient({ year }: { year: string }) {
         ))}
       </div>
 
-      {activeTab === 'Rankings' && <RankingsView predictions={d.predictions ?? []} playoffLeaders={d.playoffLeaders ?? []} />}
+      {activeTab === 'Rankings' && <RankingsView predictions={d.predictions ?? []} playoffLeaders={d.playoffLeaders ?? []} onSelectPrediction={setSelectedPrediction} />}
       {activeTab === 'Statistics' && <StatisticsView series={d.series ?? []} seriesStats={d.seriesStats ?? []} snackStats={d.snackStats ?? []} generalStats={d.generalStats ?? []} mvpStats={d.mvpStats ?? []} />}
       {activeTab === 'Bracket' && <BracketView series={d.series ?? []} seriesStats={d.seriesStats ?? []} />}
       {activeTab === 'My picks' && <MyPicksView predictions={d.predictions ?? []} series={d.series ?? []} playoffLeaders={d.playoffLeaders ?? []} generalConfig={d.generalConfig} snackQuestions={d.snackQuestions ?? []} />}
       {activeTab === 'Deni tracker' && <DeniTracker />}
+
+      {selectedPrediction && (
+        <PredictionDetailModal
+          prediction={selectedPrediction}
+          series={d.series ?? []}
+          snackQuestions={d.snackQuestions ?? []}
+          snackQuestionLookup={d.snackQuestionLookup ?? {}}
+          generalConfig={d.generalConfig}
+          onClose={() => setSelectedPrediction(null)}
+        />
+      )}
     </div>
   )
 }
 
-function RankingsView({ predictions, playoffLeaders }: { predictions: Prediction[]; playoffLeaders: { category: string; playerName: string }[] }) {
+function RankingsView({ predictions, playoffLeaders, onSelectPrediction }: { predictions: Prediction[]; playoffLeaders: { category: string; playerName: string }[]; onSelectPrediction: (prediction: Prediction) => void }) {
   const sorted = [...predictions].sort((a, b) => b.totalScore - a.totalScore)
 
   return (
@@ -68,16 +90,24 @@ function RankingsView({ predictions, playoffLeaders }: { predictions: Prediction
           const genPts = p.generalPrediction?.score ?? 0
           const snackPts = p.snackAnswers.reduce((sum, sa) => sum + sa.score, 0)
           return (
-            <div key={p.userId} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${rank <= 3 ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-100'}`}>
-              <div className="flex items-center gap-3">
+            <button
+              key={p.userId}
+              type="button"
+              onClick={() => onSelectPrediction(p)}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-left transition-all hover:border-blue-200 hover:bg-blue-50/40 ${rank <= 3 ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-100'}`}
+            >
+              <div className="flex items-center gap-3 min-w-0">
                 <span className="text-lg w-8 text-center">{medal ?? <span className="text-sm text-gray-400">{rank}</span>}</span>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{p.userName}</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-blue-700 truncate">{p.userName}</p>
                   <p className="text-[11px] text-gray-400">B:{bracketPts} · L:{leaderPts} · G:{genPts} · S:{snackPts}</p>
                 </div>
               </div>
-              <span className="text-lg font-bold text-gray-900">{p.totalScore}</span>
-            </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-400 hidden sm:inline">View picks</span>
+                <span className="text-lg font-bold text-gray-900">{p.totalScore}</span>
+              </div>
+            </button>
           )
         })}
         {sorted.length === 0 && <div className="text-center py-8 text-sm text-gray-400">No predictions yet.</div>}
@@ -442,6 +472,164 @@ function DeniTracker() {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PredictionDetailModal({ prediction, series, snackQuestions, snackQuestionLookup, generalConfig, onClose }: {
+  prediction: Prediction
+  series: Series[]
+  snackQuestions: { id: number; question: string; result: boolean | null; order: number }[]
+  snackQuestionLookup: Record<string, string>
+  generalConfig?: { questions: { key: string; label: string }[]; results: Record<string, number> | null }
+  onClose: () => void
+}) {
+  const seriesById = new Map(series.map((item) => [item.id, item]))
+  const scoreBreakdown = {
+    bracket: prediction.seriesPredictions.reduce((sum, item) => sum + item.totalScore, 0),
+    leaders: prediction.leaderPredictions.reduce((sum, item) => sum + item.score, 0),
+    general: prediction.generalPrediction?.score ?? 0,
+    snacks: prediction.snackAnswers.reduce((sum, item) => sum + item.score, 0),
+  }
+
+  const regularLeaders = prediction.leaderPredictions.filter((item) => !MVP_CATEGORY_LABELS[item.category])
+  const mvpPredictions = prediction.leaderPredictions.filter((item) => MVP_CATEGORY_LABELS[item.category])
+  const groupedSnackAnswers = Array.from(
+    prediction.snackAnswers.reduce((map, answer) => {
+      const rawQuestion = snackQuestionLookup[String(answer.questionId)] ?? `Question ${answer.questionId}`
+      const key = normalizeQuestion(rawQuestion)
+      if (!map.has(key)) {
+        map.set(key, { question: rawQuestion, answer: answer.answer, score: answer.score })
+      }
+      return map
+    }, new Map<string, { question: string; answer: boolean; score: number }>()).values()
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-gray-900/50 p-4">
+      <div className="w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white shadow-2xl border border-gray-200">
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white">
+          <div>
+            <p className="text-xs uppercase tracking-[0.25em] text-blue-200">Prediction Detail</p>
+            <h2 className="mt-1 text-2xl font-semibold">{prediction.userName}</h2>
+            <p className="mt-1 text-sm text-blue-100">Full bracket, leaders, general picks and yes/no answers</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <div className="text-xs text-blue-200">Total score</div>
+              <div className="text-2xl font-bold">{prediction.totalScore}</div>
+            </div>
+            <button type="button" onClick={onClose} className="rounded-full bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/20">
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div className="max-h-[calc(90vh-96px)] overflow-y-auto px-6 py-5 space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: 'Bracket', value: scoreBreakdown.bracket },
+              { label: 'Leaders', value: scoreBreakdown.leaders },
+              { label: 'General', value: scoreBreakdown.general },
+              { label: 'Yes/No', value: scoreBreakdown.snacks },
+            ].map((item) => (
+              <div key={item.label} className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+                <div className="text-xs uppercase tracking-wider text-gray-400">{item.label}</div>
+                <div className="mt-1 text-xl font-semibold text-gray-900">{item.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <section className="space-y-3">
+              <div className="text-xs font-bold tracking-widest text-gray-400 uppercase">Series Picks</div>
+              <div className="space-y-2">
+                {[...prediction.seriesPredictions]
+                  .sort((a, b) => {
+                    const seriesA = seriesById.get(a.seriesId)
+                    const seriesB = seriesById.get(b.seriesId)
+                    return (seriesA?.round ?? 99) - (seriesB?.round ?? 99) || a.seriesId.localeCompare(b.seriesId)
+                  })
+                  .map((item) => {
+                    const matchup = seriesById.get(item.seriesId)
+                    const winner = matchup
+                      ? [matchup.homeTeam, matchup.awayTeam].find((team) => team.id === item.winnerId)
+                      : null
+                    return (
+                      <div key={item.seriesId} className="rounded-2xl border border-gray-200 p-4 bg-white">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{matchup ? `${matchup.homeTeam.abbr} vs ${matchup.awayTeam.abbr}` : item.seriesId}</div>
+                            <div className="text-xs text-gray-400">{matchup ? `Round ${matchup.round} · ${matchup.label}` : 'Series pick'}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-semibold text-blue-700">{winner?.abbr ?? item.winnerId}</div>
+                            <div className="text-xs text-gray-500">in {item.gameCount} games</div>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-xs text-gray-500">Leading scorer: <span className="font-medium text-gray-700">{item.leadingScorer}</span></div>
+                      </div>
+                    )
+                  })}
+              </div>
+            </section>
+
+            <section className="space-y-6">
+              <div>
+                <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Stat Leaders</div>
+                <div className="space-y-2">
+                  {regularLeaders.map((item) => (
+                    <div key={item.category} className="flex items-center justify-between rounded-2xl border border-gray-200 p-3 bg-white">
+                      <span className="text-sm text-gray-500">{item.category}</span>
+                      <span className="text-sm font-medium text-gray-900">{item.playerName}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">MVP Picks</div>
+                <div className="space-y-2">
+                  {mvpPredictions.map((item) => (
+                    <div key={item.category} className="flex items-center justify-between rounded-2xl border border-gray-200 p-3 bg-white">
+                      <span className="text-sm text-gray-500">{MVP_CATEGORY_LABELS[item.category]}</span>
+                      <span className="text-sm font-medium text-gray-900">{item.playerName}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">General Picks</div>
+                <div className="space-y-2">
+                  {(generalConfig?.questions ?? []).map((question) => (
+                    <div key={question.key} className="flex items-center justify-between rounded-2xl border border-gray-200 p-3 bg-white">
+                      <span className="text-sm text-gray-500">{question.label}</span>
+                      <span className="text-sm font-medium text-gray-900">{prediction.generalPrediction?.answers?.[question.key] ?? '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Yes/No Picks</div>
+                <div className="space-y-2">
+                  {groupedSnackAnswers.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-400 bg-gray-50">No yes/no picks saved.</div>
+                  ) : (
+                    groupedSnackAnswers.map((item) => (
+                      <div key={item.question} className="flex items-center justify-between rounded-2xl border border-gray-200 p-3 bg-white gap-3">
+                        <span className="text-sm text-gray-500">{item.question}</span>
+                        <span className={`text-sm font-medium ${item.answer ? 'text-green-700' : 'text-red-700'}`}>{item.answer ? 'Yes' : 'No'}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     </div>

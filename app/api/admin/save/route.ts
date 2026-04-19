@@ -14,10 +14,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const normalizeSnackQuestion = (question: string) => question.trim().toLowerCase();
+  const seasonSnackQuestions = await prisma.snackQuestion.findMany({
+    where: { seasonId: season.id },
+    select: { id: true, question: true },
+  });
+  const questionKeyById = new Map(
+    seasonSnackQuestions.map((question) => [question.id, normalizeSnackQuestion(question.question)])
+  );
+  const questionIdsByKey = new Map<string, number[]>();
+  for (const question of seasonSnackQuestions) {
+    const key = normalizeSnackQuestion(question.question);
+    questionIdsByKey.set(key, [...(questionIdsByKey.get(key) ?? []), question.id]);
+  }
+
   // Update yes/no answers
+  const updatedKeys = new Set<string>();
   for (const { id, result } of snackAnswers ?? []) {
-    await prisma.snackQuestion.update({
-      where: { id },
+    const key = questionKeyById.get(id);
+    if (!key || updatedKeys.has(key)) continue;
+    updatedKeys.add(key);
+
+    await prisma.snackQuestion.updateMany({
+      where: { id: { in: questionIdsByKey.get(key) ?? [id] } },
       data: { result },
     });
   }

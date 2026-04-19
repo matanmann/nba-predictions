@@ -321,9 +321,20 @@ export async function recalculateAllScores(seasonId: number): Promise<number> {
     season.playoffLeaders.map((l) => [l.category, l.playerName])
   );
   const actualGen = (season.generalConfig?.results ?? {}) as Record<string, number>;
-  const snackRes = Object.fromEntries(
-    season.snackQuestions.map((q) => [q.id, q.result])
+  const normalizeSnackQuestion = (question: string) => question.trim().toLowerCase();
+  const snackQuestionById = Object.fromEntries(
+    season.snackQuestions.map((question) => [question.id, question])
   );
+  const snackResultByKey = new Map<string, boolean | null>();
+  for (const question of season.snackQuestions) {
+    const key = normalizeSnackQuestion(question.question);
+    const current = snackResultByKey.get(key);
+    if (question.result !== null && question.result !== undefined) {
+      snackResultByKey.set(key, question.result);
+    } else if (current === undefined) {
+      snackResultByKey.set(key, null);
+    }
+  }
 
   for (const pred of season.predictions) {
     let total = 0;
@@ -379,13 +390,32 @@ export async function recalculateAllScores(seasonId: number): Promise<number> {
       total += genTotal;
     }
 
-    // Snack scores
-    for (const sa of pred.snackAnswers) {
-      const actual = snackRes[sa.questionId];
-      if (actual === null || actual === undefined) continue;
-      const pts = sa.answer === actual ? 2 : 0;
+    // Snack scores (deduped by normalized question text: one effective answer per user)
+    const snackAnswersByKey = new Map<string, typeof pred.snackAnswers>();
+    for (const answer of pred.snackAnswers) {
+      const question = snackQuestionById[answer.questionId];
+      if (!question) continue;
+      const key = normalizeSnackQuestion(question.question);
+      snackAnswersByKey.set(key, [...(snackAnswersByKey.get(key) ?? []), answer]);
+    }
+
+    for (const [key, answers] of snackAnswersByKey.entries()) {
+      const actual = snackResultByKey.get(key);
+      const sorted = [...answers].sort((a, b) => b.id - a.id);
+      const effective = sorted[0];
+      const pts = actual === null || actual === undefined
+        ? 0
+        : effective.answer === actual
+          ? 2
+          : 0;
+
+      // Only the effective answer can score; duplicates are forced to zero.
+      await prisma.snackAnswer.updateMany({
+        where: { id: { in: sorted.map((answer) => answer.id) } },
+        data: { score: 0 },
+      });
       await prisma.snackAnswer.update({
-        where: { id: sa.id },
+        where: { id: effective.id },
         data: { score: pts },
       });
       total += pts;

@@ -144,13 +144,21 @@ export async function GET(
   // Calculate yes/no question accuracy
   const snackStats = snackQuestions.map(q => {
     const relatedQuestionIds = new Set(snackQuestionIdsByText.get(normalizeQuestion(q.question)) ?? [q.id]);
-    const answers = season.predictions.flatMap((p) =>
-      p.snackAnswers.filter((sa) => relatedQuestionIds.has(sa.questionId))
-    );
-    const yesCount = answers.filter((sa) => sa.answer).length;
-    const noCount = answers.length - yesCount;
+
+    // For duplicated DB rows of the same question text, count at most one answer per user.
+    const effectiveAnswers = season.predictions
+      .map((prediction) => {
+        const candidates = prediction.snackAnswers
+          .filter((answer) => relatedQuestionIds.has(answer.questionId))
+          .sort((a, b) => b.id - a.id);
+        return candidates[0] ?? null;
+      })
+      .filter((answer): answer is NonNullable<typeof answer> => Boolean(answer));
+
+    const yesCount = effectiveAnswers.filter((answer) => answer.answer).length;
+    const noCount = effectiveAnswers.length - yesCount;
     const totalParticipants = season.predictions.length;
-    const missingCount = Math.max(totalParticipants - answers.length, 0);
+    const missingCount = Math.max(totalParticipants - effectiveAnswers.length, 0);
 
     if (q.result === null) {
       return {
@@ -159,7 +167,7 @@ export async function GET(
         result: null,
         accuracy: null,
         correctCount: 0,
-        totalCount: answers.length,
+        totalCount: effectiveAnswers.length,
         yesCount,
         noCount,
         missingCount,
@@ -167,15 +175,17 @@ export async function GET(
       };
     }
 
-    const correctCount = answers.filter((sa) => sa.answer === q.result).length;
-    const accuracy = answers.length > 0 ? Math.round((correctCount / answers.length) * 100) : 0;
+    const correctCount = effectiveAnswers.filter((answer) => answer.answer === q.result).length;
+    const accuracy = effectiveAnswers.length > 0
+      ? Math.round((correctCount / effectiveAnswers.length) * 100)
+      : 0;
     return {
       questionId: q.id,
       question: q.question,
       result: q.result,
       accuracy,
       correctCount,
-      totalCount: answers.length,
+      totalCount: effectiveAnswers.length,
       yesCount,
       noCount,
       missingCount,

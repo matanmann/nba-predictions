@@ -64,6 +64,14 @@ function teamLogoUrl(abbr: string): string {
   return TEAM_LOGOS[abbr] ?? 'https://cdn.nba.com/logos/nba/1610612737/primary/L/logo.svg'
 }
 
+function isTBDTeam(homeTeamId: string, awayTeamId: string): boolean {
+  return homeTeamId === awayTeamId
+}
+
+function getTBDLogoUrl(): string {
+  return 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23e5e7eb%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%22 y=%2260%22 font-size=%2232%22 font-weight=%22bold%22 fill=%22%237c8591%22 text-anchor=%22middle%22%3ETBD%3C/text%3E%3C/svg%3E'
+}
+
 const TABS = ['Rankings', 'Statistics', 'Bracket', 'My picks', 'Deni tracker'] as const
 type Tab = typeof TABS[number]
 
@@ -328,6 +336,7 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
   const rounds = [1, 2, 3, 4]
   const roundNames: Record<number, string> = { 1: 'First round', 2: 'Conference semis', 3: 'Conference finals', 4: 'NBA Finals' }
   const seriesStatsMap = new Map(seriesStats.map(s => [s.seriesId, s]))
+  const isTBD = (s: Series) => isTBDTeam(s.homeTeam.id, s.awayTeam.id)
 
   return (
     <div className="space-y-8">
@@ -340,16 +349,19 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
             <div className="space-y-3">
               {rs.map(s => {
                 const stat = seriesStatsMap.get(s.id)
+                const hasTBD = isTBD(s)
                 return (
                   <div key={s.id} className="bg-white rounded-xl border border-gray-200 p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[11px] text-gray-400">{s.label}</span>
                       <div className="flex items-center gap-2">
-                        {stat && (
+                        {stat && !hasTBD && (
                           <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">{stat.majorityPickPercentage}% picked {stat.majorityTeamAbbr}</span>
                         )}
                         {s.isComplete ? (
                           <span className="text-[11px] font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Final · {s.gameCount} games</span>
+                        ) : hasTBD ? (
+                          <span className="text-[11px] text-gray-400">Awaiting matchup</span>
                         ) : (
                           <span className="text-[11px] text-gray-400">In progress</span>
                         )}
@@ -357,7 +369,7 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
                     </div>
 
                     <div className="mb-3 text-xs text-gray-600 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
-                      {stat?.statusText ?? 'In progress'}
+                      {hasTBD ? 'Matchup to be determined' : stat?.statusText ?? 'In progress'}
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
@@ -367,13 +379,13 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
                         return (
                           <div key={team.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isWinner ? 'bg-green-50 border border-green-200' : s.isComplete ? 'bg-gray-50 border border-gray-100 opacity-50' : 'bg-gray-50 border border-gray-100'}`}>
                             <img
-                              src={teamLogoUrl(team.abbr)}
-                              alt={team.abbr}
+                              src={hasTBD ? getTBDLogoUrl() : teamLogoUrl(team.abbr)}
+                              alt={hasTBD ? 'TBD' : team.abbr}
                               className="w-4 h-4"
                             />
-                            <span className={`text-sm font-medium ${isWinner ? 'text-green-800' : 'text-gray-600'}`}>{team.abbr}</span>
-                            <span className="text-[11px] text-gray-400">#{team.seed}</span>
-                            {typeof teamWins === 'number' && teamWins > 0 && (
+                            <span className={`text-sm font-medium ${isWinner ? 'text-green-800' : 'text-gray-600'}`}>{hasTBD ? 'TBD' : team.abbr}</span>
+                            {!hasTBD && <span className="text-[11px] text-gray-400">#{team.seed}</span>}
+                            {!hasTBD && typeof teamWins === 'number' && teamWins > 0 && (
                               <span className="ml-auto text-[11px] font-medium text-gray-500">{teamWins}W</span>
                             )}
                           </div>
@@ -381,7 +393,7 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
                       })}
                     </div>
 
-                    {(stat?.currentTopScorer || stat?.leadingScorer) && (
+                    {!hasTBD && (stat?.currentTopScorer || stat?.leadingScorer) && (
                       <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
                         <img
                           src={scorerAvatarUrl(stat.currentTopScorer ?? stat.leadingScorer ?? '')}
@@ -397,7 +409,7 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
                       </div>
                     )}
 
-                    {stat && (
+                    {!hasTBD && stat && (
                       <div className="mt-3 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden flex">
                         <div className="h-full" style={{ backgroundColor: '#0072B2', width: `${stat.totalPredictions > 0 ? (stat.homePickCount / stat.totalPredictions) * 100 : 0}%` }} />
                         <div className="h-full" style={{ backgroundColor: '#E69F00', width: `${stat.totalPredictions > 0 ? (stat.awayPickCount / stat.totalPredictions) * 100 : 0}%` }} />

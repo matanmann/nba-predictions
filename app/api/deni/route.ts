@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchAllPages, BDLStat } from "@/lib/nba-api";
 import { env } from "@/lib/env";
+import { prisma } from "@/lib/prisma";
 
 const BASE = env.NBA_API_BASE;
 const KEY = env.NBA_API_KEY;
@@ -37,10 +38,18 @@ export async function GET() {
       return NextResponse.json({ error: "Player not found" }, { status: 404 });
     }
 
-    // 2024-25 season = season 2024 in BDL
+    // Get active season
+    const season = await prisma.season.findFirst({ where: { isActive: true } });
+    if (!season) {
+      return NextResponse.json({ error: "No active season" }, { status: 404 });
+    }
+
+    // BDL uses starting year: 2025-26 season → BDL season 2025
+    const bdlSeason = season.year - 1;
+
     const stats = await fetchAllPages<BDLStat>("/stats", {
       "player_ids[]": String(playerId),
-      "seasons[]": "2024",
+      "seasons[]": String(bdlSeason),
       postseason: "true",
     });
 

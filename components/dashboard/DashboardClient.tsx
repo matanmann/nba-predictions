@@ -510,7 +510,7 @@ function DeniTracker() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/deni')
+    fetch('/api/deni-stats')
       .then(async r => {
         const data = await r.json()
         if (!r.ok || data.error) {

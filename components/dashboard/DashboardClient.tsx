@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useDashboard } from '@/hooks/useDashboard'
 
 interface Team { id: string; name: string; abbr: string; seed: number; color: string }
@@ -488,7 +488,40 @@ function MyPicksView({ predictions, series, playoffLeaders, generalConfig, snack
   )
 }
 
+interface DeniGame { date: string; pts: number; reb: number; ast: number; min: string }
+interface DeniTotals { ppg: number; rpg: number; apg: number; gamesPlayed: number }
+
 function DeniTracker() {
+  const [games, setGames] = useState<DeniGame[] | null>(null)
+  const [totals, setTotals] = useState<DeniTotals | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/deni')
+      .then(r => r.json())
+      .then(data => {
+        setGames(data.games ?? [])
+        setTotals(data.totals ?? null)
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const stats = totals
+    ? [
+        { label: 'PPG', value: String(totals.ppg) },
+        { label: 'RPG', value: String(totals.rpg) },
+        { label: 'APG', value: String(totals.apg) },
+        { label: 'Games', value: String(totals.gamesPlayed) },
+      ]
+    : [
+        { label: 'PPG', value: '—' },
+        { label: 'RPG', value: '—' },
+        { label: 'APG', value: '—' },
+        { label: 'Games', value: '0' },
+      ]
+
   return (
     <div className="space-y-6">
       {/* Deni card */}
@@ -502,24 +535,50 @@ function DeniTracker() {
         </div>
 
         <div className="grid grid-cols-4 gap-2 mb-4">
-          {[
-            { label: 'PPG', value: '—' },
-            { label: 'RPG', value: '—' },
-            { label: 'APG', value: '—' },
-            { label: 'Games', value: '0' },
-          ].map(s => (
+          {stats.map(s => (
             <div key={s.label} className="bg-white/10 rounded-lg p-3 text-center">
               <p className="text-[11px] text-gray-400">{s.label}</p>
-              <p className="text-lg font-semibold mt-1">{s.value}</p>
+              <p className="text-lg font-semibold mt-1">{loading ? '…' : s.value}</p>
             </div>
           ))}
         </div>
 
         <div>
           <p className="text-[11px] text-gray-400 mb-2">Playoff game log</p>
-          <div className="text-sm text-gray-400 text-center py-4 bg-white/5 rounded-lg">
-            Playoff stats will appear here once games are played
-          </div>
+          {loading ? (
+            <div className="text-sm text-gray-400 text-center py-4 bg-white/5 rounded-lg">Loading…</div>
+          ) : error ? (
+            <div className="text-sm text-red-400 text-center py-4 bg-white/5 rounded-lg">Failed to load stats</div>
+          ) : !games || games.length === 0 ? (
+            <div className="text-sm text-gray-400 text-center py-4 bg-white/5 rounded-lg">
+              Playoff stats will appear here once games are played
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr className="text-gray-400 border-b border-white/10">
+                    <th className="pb-1 pr-3 font-medium">Date</th>
+                    <th className="pb-1 px-2 font-medium text-center">MIN</th>
+                    <th className="pb-1 px-2 font-medium text-center">PTS</th>
+                    <th className="pb-1 px-2 font-medium text-center">REB</th>
+                    <th className="pb-1 px-2 font-medium text-center">AST</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...games].reverse().map((g, i) => (
+                    <tr key={i} className="border-b border-white/5 hover:bg-white/5">
+                      <td className="py-1.5 pr-3 text-gray-300">{g.date.slice(5)}</td>
+                      <td className="py-1.5 px-2 text-center text-gray-300">{g.min?.split(':')[0] ?? '—'}</td>
+                      <td className="py-1.5 px-2 text-center font-semibold">{g.pts}</td>
+                      <td className="py-1.5 px-2 text-center">{g.reb}</td>
+                      <td className="py-1.5 px-2 text-center">{g.ast}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 

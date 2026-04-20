@@ -507,16 +507,27 @@ function DeniTracker() {
   const [games, setGames] = useState<DeniGame[] | null>(null)
   const [totals, setTotals] = useState<DeniTotals | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/deni')
-      .then(r => r.json())
-      .then(data => {
-        setGames(data.games ?? [])
-        setTotals(data.totals ?? null)
+      .then(async r => {
+        const data = await r.json()
+        if (!r.ok || data.error) {
+          setError(data.error || 'Failed to fetch stats')
+          setGames([])
+          setTotals(null)
+        } else {
+          setGames(data.games ?? [])
+          setTotals(data.totals ?? null)
+          setError(null)
+        }
       })
-      .catch(() => setError(true))
+      .catch(err => {
+        setError(String(err))
+        setGames([])
+        setTotals(null)
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -560,7 +571,7 @@ function DeniTracker() {
           {loading ? (
             <div className="text-sm text-gray-400 text-center py-4 bg-white/5 rounded-lg">Loading…</div>
           ) : error ? (
-            <div className="text-sm text-red-400 text-center py-4 bg-white/5 rounded-lg">Failed to load stats</div>
+            <div className="text-sm text-red-400 text-center py-4 bg-red-900/20 rounded-lg">{error}</div>
           ) : !games || games.length === 0 ? (
             <div className="text-sm text-gray-400 text-center py-4 bg-white/5 rounded-lg">
               Playoff stats will appear here once games are played

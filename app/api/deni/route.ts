@@ -34,24 +34,31 @@ async function getDeniPlayerId(): Promise<number | null> {
 export async function GET() {
   try {
     const playerId = await getDeniPlayerId();
+    console.log('[Deni API] Player ID:', playerId);
     if (!playerId) {
+      console.error('[Deni API] Player not found');
       return NextResponse.json({ error: "Player not found" }, { status: 404 });
     }
 
     // Get active season
     const season = await prisma.season.findFirst({ where: { isActive: true } });
+    console.log('[Deni API] Active season:', season?.year);
     if (!season) {
+      console.error('[Deni API] No active season found');
       return NextResponse.json({ error: "No active season" }, { status: 404 });
     }
 
     // BDL uses starting year: 2025-26 season → BDL season 2025
     const bdlSeason = season.year - 1;
+    console.log('[Deni API] BDL season:', bdlSeason);
 
     const stats = await fetchAllPages<BDLStat>("/stats", {
       "player_ids[]": String(playerId),
       "seasons[]": String(bdlSeason),
       postseason: "true",
     });
+
+    console.log('[Deni API] Stats fetched:', stats.length, 'games');
 
     if (stats.length === 0) {
       return NextResponse.json({ games: [], totals: null });
@@ -75,7 +82,7 @@ export async function GET() {
     const totalAst = stats.reduce((sum, s) => sum + s.ast, 0);
     const n = stats.length;
 
-    return NextResponse.json({
+    const result = {
       games,
       totals: {
         ppg: +(totalPts / n).toFixed(1),
@@ -83,9 +90,12 @@ export async function GET() {
         apg: +(totalAst / n).toFixed(1),
         gamesPlayed: n,
       },
-    });
+    };
+
+    console.log('[Deni API] Returning:', result);
+    return NextResponse.json(result);
   } catch (err) {
     console.error("Deni API error:", err);
-    return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 });
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

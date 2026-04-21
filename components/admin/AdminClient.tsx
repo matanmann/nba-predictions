@@ -15,11 +15,24 @@ interface AdminParticipant {
   email: string;
 }
 
+interface ManualDeniGameInput {
+  date: string;
+  min: string;
+  pts: string;
+  reb: string;
+  ast: string;
+}
+
 export default function AdminClient({ year }: { year: number }) {
   const [snacks, setSnacks] = useState<SnackQuestion[]>([]);
   const [participants, setParticipants] = useState<AdminParticipant[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [gameWinners, setGameWinners] = useState("");
+  const [deniPpg, setDeniPpg] = useState("");
+  const [deniRpg, setDeniRpg] = useState("");
+  const [deniApg, setDeniApg] = useState("");
+  const [deniGamesPlayed, setDeniGamesPlayed] = useState("");
+  const [deniGamesLog, setDeniGamesLog] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -44,6 +57,23 @@ export default function AdminClient({ year }: { year: number }) {
         setSelectedUserId(data.participants[0].userId);
       }
       setGameWinners(String(data.generalResults?.gameWinners ?? ""));
+      const deniTracker = data.generalResults?.deniTracker;
+      setDeniPpg(deniTracker?.totals?.ppg != null ? String(deniTracker.totals.ppg) : "");
+      setDeniRpg(deniTracker?.totals?.rpg != null ? String(deniTracker.totals.rpg) : "");
+      setDeniApg(deniTracker?.totals?.apg != null ? String(deniTracker.totals.apg) : "");
+      setDeniGamesPlayed(
+        deniTracker?.totals?.gamesPlayed != null ? String(deniTracker.totals.gamesPlayed) : ""
+      );
+      setDeniGamesLog(
+        Array.isArray(deniTracker?.games)
+          ? deniTracker.games
+              .map(
+                (g: { date: string; min: string; pts: number; reb: number; ast: number }) =>
+                  `${g.date},${g.min},${g.pts},${g.reb},${g.ast}`
+              )
+              .join("\n")
+          : ""
+      );
       setLoading(false);
     }
     load();
@@ -55,6 +85,64 @@ export default function AdminClient({ year }: { year: number }) {
   };
 
   async function handleSave() {
+    const hasAnyDeniValue =
+      deniPpg.trim() !== "" ||
+      deniRpg.trim() !== "" ||
+      deniApg.trim() !== "" ||
+      deniGamesPlayed.trim() !== "" ||
+      deniGamesLog.trim() !== "";
+
+    let deniTrackerPayload: {
+      totals: { ppg: number; rpg: number; apg: number; gamesPlayed: number };
+      games: { date: string; min: string; pts: number; reb: number; ast: number }[];
+    } | null | undefined = undefined;
+
+    if (hasAnyDeniValue) {
+      const ppg = Number(deniPpg);
+      const rpg = Number(deniRpg);
+      const apg = Number(deniApg);
+      const gamesPlayed = Number(deniGamesPlayed);
+
+      if (![ppg, rpg, apg].every(Number.isFinite) || !Number.isInteger(gamesPlayed)) {
+        notify("Deni totals are invalid. Please use numbers (games must be an integer).", "error");
+        return;
+      }
+
+      const games = deniGamesLog
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [date, min, pts, reb, ast] = line.split(",").map((part) => part.trim());
+          return {
+            date,
+            min,
+            pts: Number(pts),
+            reb: Number(reb),
+            ast: Number(ast),
+          };
+        });
+
+      const gamesValid = games.every(
+        (game) =>
+          game.date &&
+          game.min &&
+          [game.pts, game.reb, game.ast].every((value) => Number.isFinite(value))
+      );
+
+      if (!gamesValid) {
+        notify("Deni game log format is invalid. Use: YYYY-MM-DD,MIN,PTS,REB,AST", "error");
+        return;
+      }
+
+      deniTrackerPayload = {
+        totals: { ppg, rpg, apg, gamesPlayed },
+        games,
+      };
+    } else {
+      deniTrackerPayload = null;
+    }
+
     setSaving(true);
     try {
       const res = await fetch("/api/admin/save", {
@@ -64,6 +152,7 @@ export default function AdminClient({ year }: { year: number }) {
           year,
           snackAnswers: snacks.map((q) => ({ id: q.id, result: q.result })),
           gameWinners: gameWinners === "" ? null : +gameWinners,
+          deniTracker: deniTrackerPayload,
         }),
       });
       if (!res.ok) throw new Error("Save failed");
@@ -257,6 +346,65 @@ export default function AdminClient({ year }: { year: number }) {
             total game-winning shots so far
           </span>
         </div>
+      </div>
+
+      {/* Deni Manual Tracker */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <p className="text-sm font-medium text-gray-900 mb-1">Deni tracker (manual fallback)</p>
+            <p className="text-xs text-gray-500">
+              Fill this only if BallDontLie player stats are unavailable. Leave all fields empty to clear manual fallback.
+            </p>
+          </div>
+          <span className="text-[11px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md font-medium">
+            Manual
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+          <input
+            type="number"
+            step="0.1"
+            value={deniPpg}
+            onChange={(e) => setDeniPpg(e.target.value)}
+            placeholder="PPG"
+            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
+          />
+          <input
+            type="number"
+            step="0.1"
+            value={deniRpg}
+            onChange={(e) => setDeniRpg(e.target.value)}
+            placeholder="RPG"
+            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
+          />
+          <input
+            type="number"
+            step="0.1"
+            value={deniApg}
+            onChange={(e) => setDeniApg(e.target.value)}
+            placeholder="APG"
+            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
+          />
+          <input
+            type="number"
+            min={0}
+            value={deniGamesPlayed}
+            onChange={(e) => setDeniGamesPlayed(e.target.value)}
+            placeholder="Games"
+            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
+          />
+        </div>
+
+        <label className="block text-xs text-gray-500 mb-1">Game log (one line per game)</label>
+        <textarea
+          value={deniGamesLog}
+          onChange={(e) => setDeniGamesLog(e.target.value)}
+          rows={4}
+          placeholder={"YYYY-MM-DD,34:12,27,8,5\nYYYY-MM-DD,36:01,31,7,4"}
+          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-mono"
+        />
       </div>
 
       {/* Yes/No Snack Questions */}

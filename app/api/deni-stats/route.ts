@@ -1,14 +1,24 @@
 import { NextResponse } from "next/server";
 import { fetchAllPages, BDLStat } from "@/lib/nba-api";
 import { env } from "@/lib/env";
+import { prisma } from "@/lib/prisma";
 
 const BASE = env.NBA_API_BASE;
 const KEY = env.NBA_API_KEY;
 
-interface BDLPlayerSearchResult {
-  id: number;
-  first_name: string;
-  last_name: string;
+interface DeniManualGame {
+  date: string;
+  min: string;
+  pts: number;
+  reb: number;
+  ast: number;
+}
+
+interface DeniManualTotals {
+  ppg: number;
+  rpg: number;
+  apg: number;
+  gamesPlayed: number;
 }
 
 async function getDeniPlayerId(): Promise<number | null> {
@@ -19,6 +29,24 @@ async function getDeniPlayerId(): Promise<number | null> {
 
 export async function GET() {
   try {
+    const activeSeason = await prisma.season.findFirst({
+      where: { isActive: true },
+      include: { generalConfig: true },
+      orderBy: { year: "desc" },
+    });
+
+    const deniManual = (activeSeason?.generalConfig?.results as Record<string, unknown> | null)?.deniTracker as
+      | { totals?: DeniManualTotals; games?: DeniManualGame[] }
+      | undefined;
+
+    if (deniManual?.totals) {
+      return NextResponse.json({
+        games: Array.isArray(deniManual.games) ? deniManual.games : [],
+        totals: deniManual.totals,
+        source: "manual",
+      });
+    }
+
     const playerId = await getDeniPlayerId();
     console.log("[Deni API] Player ID:", playerId);
     if (!playerId) {
@@ -29,8 +57,8 @@ export async function GET() {
       );
     }
 
-    // Use 2025 for current 2025-26 NBA season
-    const bdlSeason = 2025;
+    // BDL uses the starting year of the season.
+    const bdlSeason = activeSeason?.year ? activeSeason.year - 1 : 2025;
     console.log("[Deni API] BDL season:", bdlSeason);
 
     const stats = await fetchAllPages<BDLStat>("/stats", {
@@ -71,6 +99,7 @@ export async function GET() {
         apg: +(totalAst / n).toFixed(1),
         gamesPlayed: n,
       },
+      source: "api",
     };
 
     console.log("[Deni API] Returning:", result);

@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recalculateAllScores } from "@/lib/nba-sync";
+import { Prisma } from "@prisma/client";
 
 export async function POST(req: NextRequest) {
   const { error } = await requireAdmin();
   if (error) return error;
 
-  const { year, snackAnswers, gameWinners } = await req.json();
+  const { year, snackAnswers, gameWinners, deniTracker } = await req.json();
 
   const season = await prisma.season.findUnique({ where: { year: +year } });
   if (!season) {
@@ -41,16 +42,32 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Update game winners count (merge with automated results)
-  if (gameWinners !== null && gameWinners !== undefined) {
-    const cfg = await prisma.generalConfig.findUnique({
-      where: { seasonId: season.id },
-    });
-    const existing = (cfg?.results ?? {}) as Record<string, number>;
-    await prisma.generalConfig.update({
-      where: { seasonId: season.id },
-      data: { results: { ...existing, gameWinners: +gameWinners } },
-    });
+  // Update manual general values (merge with automated results)
+  if (gameWinners !== undefined || deniTracker !== undefined) {
+    const cfg = await prisma.generalConfig.findUnique({ where: { seasonId: season.id } });
+    const existing = (cfg?.results ?? {}) as Record<string, unknown>;
+    const nextResults: Record<string, unknown> = { ...existing };
+
+    if (gameWinners !== undefined) {
+      if (gameWinners === null) delete nextResults.gameWinners;
+      else nextResults.gameWinners = +gameWinners;
+    }
+
+    if (deniTracker !== undefined) {
+      if (deniTracker === null) delete nextResults.deniTracker;
+      else nextResults.deniTracker = deniTracker;
+    }
+
+    if (cfg) {
+      await prisma.generalConfig.update({
+        where: { seasonId: season.id },
+        data: { results: nextResults as Prisma.InputJsonValue },
+      });
+    } else {
+      await prisma.generalConfig.create({
+        data: { seasonId: season.id, questions: [], results: nextResults as Prisma.InputJsonValue },
+      });
+    }
   }
 
   // Recalculate all scores

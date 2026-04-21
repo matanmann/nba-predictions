@@ -699,6 +699,7 @@ function PredictionDetailModal({ prediction, series, snackQuestions, snackQuesti
                   })
                   .map((item) => {
                     const matchup = seriesById.get(item.seriesId)
+                    const isTBDMatchup = matchup ? isTBDTeam(matchup.homeTeam.id, matchup.awayTeam.id) : false
                     const winner = matchup
                       ? [matchup.homeTeam, matchup.awayTeam].find((team) => team.id === item.winnerId)
                       : null
@@ -706,15 +707,15 @@ function PredictionDetailModal({ prediction, series, snackQuestions, snackQuesti
                       <div key={item.seriesId} className="rounded-2xl border border-gray-200 p-4 bg-white">
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <div className="text-sm font-medium text-gray-900">{matchup ? `${matchup.homeTeam.abbr} vs ${matchup.awayTeam.abbr}` : item.seriesId}</div>
-                            <div className="text-xs text-gray-400">{matchup ? `Round ${matchup.round} · ${matchup.label}` : 'Series pick'}</div>
+                            <div className="text-sm font-medium text-gray-900">{matchup ? (isTBDMatchup ? 'TBD vs TBD' : `${matchup.homeTeam.abbr} vs ${matchup.awayTeam.abbr}`) : item.seriesId}</div>
+                            <div className="text-xs text-gray-400">{matchup ? `${isTBDMatchup ? 'Awaiting matchup' : `Round ${matchup.round}`} · ${matchup.label}` : 'Series pick'}</div>
                           </div>
                           <div className="text-right">
-                            <div className="text-sm font-semibold text-blue-700">{winner?.abbr ?? item.winnerId}</div>
-                            <div className="text-xs text-gray-500">in {item.gameCount} games</div>
+                            <div className="text-sm font-semibold text-blue-700">{isTBDMatchup ? 'TBD' : (winner?.abbr ?? item.winnerId)}</div>
+                            <div className="text-xs text-gray-500">{isTBDMatchup ? 'awaiting teams' : `in ${item.gameCount} games`}</div>
                           </div>
                         </div>
-                        <div className="mt-2 text-xs text-gray-500">Leading scorer: <span className="font-medium text-gray-700">{item.leadingScorer}</span></div>
+                        <div className="mt-2 text-xs text-gray-500">Leading scorer: <span className="font-medium text-gray-700">{isTBDMatchup ? 'TBD' : item.leadingScorer}</span></div>
                       </div>
                     )
                   })}

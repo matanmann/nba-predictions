@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   const { error } = await requireAdmin();
   if (error) return error;
 
-  const { year, snackAnswers, gameWinners, deniTracker } = await req.json();
+  const { year, snackAnswers, gameWinners, deniTracker, generalResults, playoffLeaders } = await req.json();
 
   const season = await prisma.season.findUnique({ where: { year: +year } });
   if (!season) {
@@ -43,10 +43,20 @@ export async function POST(req: NextRequest) {
   }
 
   // Update manual general values (merge with automated results)
-  if (gameWinners !== undefined || deniTracker !== undefined) {
+  if (gameWinners !== undefined || deniTracker !== undefined || generalResults !== undefined) {
     const cfg = await prisma.generalConfig.findUnique({ where: { seasonId: season.id } });
     const existing = (cfg?.results ?? {}) as Record<string, unknown>;
     const nextResults: Record<string, unknown> = { ...existing };
+
+    if (generalResults && typeof generalResults === "object") {
+      for (const [key, value] of Object.entries(generalResults as Record<string, unknown>)) {
+        if (value === null || value === undefined || value === "") delete nextResults[key];
+        else {
+          const parsed = Number(value);
+          if (Number.isFinite(parsed)) nextResults[key] = parsed;
+        }
+      }
+    }
 
     if (gameWinners !== undefined) {
       if (gameWinners === null) delete nextResults.gameWinners;
@@ -66,6 +76,28 @@ export async function POST(req: NextRequest) {
     } else {
       await prisma.generalConfig.create({
         data: { seasonId: season.id, questions: [], results: nextResults as Prisma.InputJsonValue },
+      });
+    }
+  }
+
+  // Update manual stat leaders and MVPs
+  if (Array.isArray(playoffLeaders)) {
+    for (const raw of playoffLeaders) {
+      const category = typeof raw?.category === "string" ? raw.category : "";
+      const playerName = typeof raw?.playerName === "string" ? raw.playerName.trim() : "";
+      if (!category) continue;
+
+      if (!playerName) {
+        await prisma.playoffLeader.deleteMany({
+          where: { seasonId: season.id, category },
+        });
+        continue;
+      }
+
+      await prisma.playoffLeader.upsert({
+        where: { seasonId_category: { seasonId: season.id, category } },
+        update: { playerName },
+        create: { seasonId: season.id, category, playerName },
       });
     }
   }

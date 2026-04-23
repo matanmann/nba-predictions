@@ -15,19 +15,45 @@ interface AdminParticipant {
   email: string;
 }
 
-interface ManualDeniGameInput {
-  date: string;
-  min: string;
-  pts: string;
-  reb: string;
-  ast: string;
+interface GeneralQuestion {
+  key: string;
+  label: string;
 }
+
+interface PlayoffLeaderInput {
+  category: string;
+  playerName: string;
+}
+
+const LEADER_CATEGORY_LABELS: Record<string, string> = {
+  Points: "Points leader",
+  Assists: "Assists leader",
+  Rebounds: "Rebounds leader",
+  Blocks: "Blocks leader",
+  Steals: "Steals leader",
+  __mvp_east: "East MVP",
+  __mvp_west: "West MVP",
+  __mvp_finals: "Finals MVP",
+};
+
+const DEFAULT_LEADER_CATEGORIES = [
+  "Points",
+  "Assists",
+  "Rebounds",
+  "Blocks",
+  "Steals",
+  "__mvp_east",
+  "__mvp_west",
+  "__mvp_finals",
+] as const;
 
 export default function AdminClient({ year }: { year: number }) {
   const [snacks, setSnacks] = useState<SnackQuestion[]>([]);
+  const [generalQuestions, setGeneralQuestions] = useState<GeneralQuestion[]>([]);
+  const [generalAnswers, setGeneralAnswers] = useState<Record<string, string>>({});
+  const [leaders, setLeaders] = useState<PlayoffLeaderInput[]>([]);
   const [participants, setParticipants] = useState<AdminParticipant[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
-  const [gameWinners, setGameWinners] = useState("");
   const [deniPpg, setDeniPpg] = useState("");
   const [deniRpg, setDeniRpg] = useState("");
   const [deniApg, setDeniApg] = useState("");
@@ -52,11 +78,25 @@ export default function AdminClient({ year }: { year: number }) {
       }
       const data = await res.json();
       setSnacks(data.snackQuestions ?? []);
+      setGeneralQuestions(data.generalQuestions ?? []);
+      const loadedGeneralAnswers = Object.fromEntries(
+        ((data.generalQuestions ?? []) as GeneralQuestion[]).map((q) => {
+          const raw = data.generalResults?.[q.key];
+          return [q.key, raw === null || raw === undefined ? "" : String(raw)];
+        })
+      ) as Record<string, string>;
+      setGeneralAnswers(loadedGeneralAnswers);
+      const loadedLeaders = (data.playoffLeaders ?? []) as PlayoffLeaderInput[];
+      const leaderMap = new Map(loadedLeaders.map((item) => [item.category, item.playerName]));
+      const normalizedLeaders = DEFAULT_LEADER_CATEGORIES.map((category) => ({
+        category,
+        playerName: leaderMap.get(category) ?? "",
+      }));
+      setLeaders(normalizedLeaders);
       setParticipants(data.participants ?? []);
       if (data.participants?.length) {
         setSelectedUserId(data.participants[0].userId);
       }
-      setGameWinners(String(data.generalResults?.gameWinners ?? ""));
       const deniTracker = data.generalResults?.deniTracker;
       setDeniPpg(deniTracker?.totals?.ppg != null ? String(deniTracker.totals.ppg) : "");
       setDeniRpg(deniTracker?.totals?.rpg != null ? String(deniTracker.totals.rpg) : "");
@@ -151,8 +191,17 @@ export default function AdminClient({ year }: { year: number }) {
         body: JSON.stringify({
           year,
           snackAnswers: snacks.map((q) => ({ id: q.id, result: q.result })),
-          gameWinners: gameWinners === "" ? null : +gameWinners,
+          generalResults: Object.fromEntries(
+            generalQuestions.map((q) => {
+              const value = generalAnswers[q.key]?.trim() ?? "";
+              return [q.key, value === "" ? null : Number(value)];
+            })
+          ),
           deniTracker: deniTrackerPayload,
+          playoffLeaders: leaders.map((item) => ({
+            category: item.category,
+            playerName: item.playerName.trim(),
+          })),
         }),
       });
       if (!res.ok) throw new Error("Save failed");
@@ -317,34 +366,70 @@ export default function AdminClient({ year }: { year: number }) {
         )}
       </div>
 
-      {/* Game-Winning Shots */}
+      {/* General Questions */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <div className="flex justify-between items-start mb-3">
           <div>
-            <p className="text-sm font-medium text-gray-900 mb-1">
-              Game-winning shots
-            </p>
-            <p className="text-xs text-gray-500">
-              Shots made with under 2 seconds remaining that decide the game.
-            </p>
+            <p className="text-sm font-medium text-gray-900 mb-1">General questions results</p>
+            <p className="text-xs text-gray-500">Set all numeric results manually when needed.</p>
           </div>
           <span className="text-[11px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md font-medium">
             Manual
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          <input
-            type="number"
-            min={0}
-            max={30}
-            value={gameWinners}
-            onChange={(e) => setGameWinners(e.target.value)}
-            placeholder="0"
-            className="w-20 text-xl font-medium text-center p-2 rounded-lg border border-gray-200 bg-gray-50"
-          />
-          <span className="text-sm text-gray-500">
-            total game-winning shots so far
+        {generalQuestions.length === 0 ? (
+          <p className="text-xs text-gray-500">No configured general questions for this season.</p>
+        ) : (
+          <div className="space-y-2">
+            {generalQuestions.map((q) => (
+              <div key={q.key} className="flex items-center gap-3">
+                <label className="text-sm text-gray-700 flex-1">{q.label}</label>
+                <input
+                  type="number"
+                  value={generalAnswers[q.key] ?? ""}
+                  onChange={(e) =>
+                    setGeneralAnswers((prev) => ({ ...prev, [q.key]: e.target.value }))
+                  }
+                  placeholder="pending"
+                  className="w-28 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-right"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Stat Leaders and MVPs */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <p className="text-sm font-medium text-gray-900 mb-1">Stat leaders and MVPs</p>
+            <p className="text-xs text-gray-500">Set winners manually (leave empty for pending).</p>
+          </div>
+          <span className="text-[11px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md font-medium">
+            Manual
           </span>
+        </div>
+        <div className="space-y-2">
+          {leaders.map((item, index) => (
+            <div key={item.category} className="flex items-center gap-3">
+              <label className="text-sm text-gray-700 w-40 sm:w-52">
+                {LEADER_CATEGORY_LABELS[item.category] ?? item.category}
+              </label>
+              <input
+                type="text"
+                value={item.playerName}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setLeaders((prev) =>
+                    prev.map((row, i) => (i === index ? { ...row, playerName: value } : row))
+                  );
+                }}
+                placeholder="Player name"
+                className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
+              />
+            </div>
+          ))}
         </div>
       </div>
 

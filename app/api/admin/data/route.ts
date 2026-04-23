@@ -54,6 +54,8 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     snackQuestions,
+    generalQuestions:
+      (season.generalConfig?.questions as Array<{ key: string; label: string }> | null) ?? [],
     generalResults: season.generalConfig?.results ?? {},
     series: season.series,
     playoffLeaders: season.playoffLeaders,

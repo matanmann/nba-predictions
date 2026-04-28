@@ -350,14 +350,14 @@ export async function recalculateAllScores(seasonId: number): Promise<number> {
     // Series scores
     for (const sp of pred.seriesPredictions) {
       const s = seriesMap[sp.seriesId];
-      if (!s?.isComplete || !s.winnerId || !s.gameCount || !s.leadingScorer) continue;
+      if (!s?.isComplete || !s.winnerId || !s.gameCount) continue;
 
       const scored = scoreSeriesPrediction(
         { winnerId: sp.winnerId, gameCount: sp.gameCount, leadingScorer: sp.leadingScorer },
         {
           winnerId: s.winnerId,
           gameCount: s.gameCount,
-          leadingScorer: s.leadingScorer,
+          leadingScorer: s.leadingScorer ?? "",
           round: s.round,
         }
       );

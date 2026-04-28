@@ -127,10 +127,13 @@ export async function runFullSync(year: number, seasonId: number) {
   console.log(`[sync] Starting sync for ${year}...`);
 
   const bdlSeason = year - 1; // BDL uses starting year
-  const [games, stats] = await Promise.all([
-    getPlayoffGames(bdlSeason),
-    getPlayoffStats(bdlSeason),
-  ]);
+  const games = await getPlayoffGames(bdlSeason);
+  let stats: Awaited<ReturnType<typeof getPlayoffStats>> = [];
+  try {
+    stats = await getPlayoffStats(bdlSeason);
+  } catch (err) {
+    console.warn(`[sync] Stats fetch failed (may require paid API plan), skipping leading scorer updates:`, err);
+  }
 
   const completedGames = games.filter((g) => g.status === "Final");
   const seriesMap = groupGamesIntoSeries(completedGames);

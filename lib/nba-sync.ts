@@ -215,15 +215,20 @@ export async function runFullSync(year: number, seasonId: number) {
   const game7s = [...seriesMap.values()].filter((g) => g.length === 7).length;
 
   const existingResults = await getCurrentGeneralResults(seasonId);
-  await prisma.generalConfig.update({
+  await prisma.generalConfig.upsert({
     where: { seasonId },
-    data: {
+    update: {
       results: {
         ...existingResults,
         overtimes: otGames,
         game7s,
         // gameWinners is manual — never overwrite it here
       },
+    },
+    create: {
+      seasonId,
+      questions: [],
+      results: { overtimes: otGames, game7s },
     },
   });
 

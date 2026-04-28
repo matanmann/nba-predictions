@@ -217,11 +217,15 @@ export default function AdminClient({ year }: { year: number }) {
     setSyncing(true);
     try {
       // Uses the admin-authenticated endpoint, NOT the cron endpoint
-      const res = await fetch("/api/admin/sync", { method: "POST" });
+      const res = await fetch("/api/admin/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ year }),
+      });
       if (!res.ok) throw new Error("Sync failed");
       const data = await res.json();
       notify(
-        `Synced: ${data.seriesUpdated} series, ${data.leadersUpdated} leaders`
+        `Synced: ${data.seriesUpdated} series, ${data.leadersUpdated} leaders, recalculated ${data.recalculated} users`
       );
     } catch {
       notify("Sync failed", "error");

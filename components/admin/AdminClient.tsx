@@ -222,13 +222,13 @@ export default function AdminClient({ year }: { year: number }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ year }),
       });
-      if (!res.ok) throw new Error("Sync failed");
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       notify(
         `Synced: ${data.seriesUpdated} series, ${data.leadersUpdated} leaders, recalculated ${data.recalculated} users`
       );
-    } catch {
-      notify("Sync failed", "error");
+    } catch (err: any) {
+      notify(`Sync failed: ${err.message}`, "error");
     } finally {
       setSyncing(false);
     }

@@ -8,7 +8,15 @@ export async function POST(req: NextRequest) {
   const { error } = await requireAdmin();
   if (error) return error;
 
-  const { year, snackAnswers, gameWinners, deniTracker, generalResults, playoffLeaders } = await req.json();
+  const {
+    year,
+    snackAnswers,
+    gameWinners,
+    deniTracker,
+    generalResults,
+    playoffLeaders,
+    seriesScorers,
+  } = await req.json();
 
   const season = await prisma.season.findUnique({ where: { year: +year } });
   if (!season) {
@@ -98,6 +106,23 @@ export async function POST(req: NextRequest) {
         where: { seasonId_category: { seasonId: season.id, category } },
         update: { playerName },
         create: { seasonId: season.id, category, playerName },
+      });
+    }
+  }
+
+  // Update manual per-series leading scorers
+  if (Array.isArray(seriesScorers)) {
+    for (const raw of seriesScorers) {
+      const seriesId = typeof raw?.seriesId === "string" ? raw.seriesId : "";
+      const leadingScorer =
+        typeof raw?.leadingScorer === "string" && raw.leadingScorer.trim().length > 0
+          ? raw.leadingScorer.trim()
+          : null;
+      if (!seriesId) continue;
+
+      await prisma.series.updateMany({
+        where: { id: seriesId, seasonId: season.id },
+        data: { leadingScorer },
       });
     }
   }

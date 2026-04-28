@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { PLAYOFF_PLAYERS } from "@/lib/playoff-players";
 
 interface SnackQuestion {
   id: number;
@@ -23,6 +24,21 @@ interface GeneralQuestion {
 interface PlayoffLeaderInput {
   category: string;
   playerName: string;
+}
+
+interface Team {
+  id: string;
+  abbr: string;
+}
+
+interface SeriesInput {
+  id: string;
+  label: string;
+  round: number;
+  conference: string;
+  leadingScorer: string | null;
+  homeTeam: Team;
+  awayTeam: Team;
 }
 
 const LEADER_CATEGORY_LABELS: Record<string, string> = {
@@ -52,6 +68,7 @@ export default function AdminClient({ year }: { year: number }) {
   const [generalQuestions, setGeneralQuestions] = useState<GeneralQuestion[]>([]);
   const [generalAnswers, setGeneralAnswers] = useState<Record<string, string>>({});
   const [leaders, setLeaders] = useState<PlayoffLeaderInput[]>([]);
+  const [series, setSeries] = useState<SeriesInput[]>([]);
   const [participants, setParticipants] = useState<AdminParticipant[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [deniPpg, setDeniPpg] = useState("");
@@ -93,6 +110,11 @@ export default function AdminClient({ year }: { year: number }) {
         playerName: leaderMap.get(category) ?? "",
       }));
       setLeaders(normalizedLeaders);
+      setSeries(
+        ((data.series ?? []) as SeriesInput[])
+          .slice()
+          .sort((a, b) => a.round - b.round || a.label.localeCompare(b.label))
+      );
       setParticipants(data.participants ?? []);
       if (data.participants?.length) {
         setSelectedUserId(data.participants[0].userId);
@@ -201,6 +223,10 @@ export default function AdminClient({ year }: { year: number }) {
           playoffLeaders: leaders.map((item) => ({
             category: item.category,
             playerName: item.playerName.trim(),
+          })),
+          seriesScorers: series.map((item) => ({
+            seriesId: item.id,
+            leadingScorer: item.leadingScorer?.trim() ?? "",
           })),
         }),
       });
@@ -437,6 +463,50 @@ export default function AdminClient({ year }: { year: number }) {
         </div>
       </div>
 
+      {/* Series Top Scorers */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <p className="text-sm font-medium text-gray-900 mb-1">Series top scorer</p>
+            <p className="text-xs text-gray-500">Select a scorer per series (manual fallback for stats API limits).</p>
+          </div>
+          <span className="text-[11px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md font-medium">
+            Manual
+          </span>
+        </div>
+
+        {series.length === 0 ? (
+          <p className="text-xs text-gray-500">No series found for this season.</p>
+        ) : (
+          <div className="space-y-3">
+            {series.map((item, index) => {
+              const players = [
+                ...(PLAYOFF_PLAYERS[item.homeTeam.abbr] ?? []),
+                ...(PLAYOFF_PLAYERS[item.awayTeam.abbr] ?? []),
+              ].sort();
+
+              return (
+                <div key={item.id} className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                  <label className="text-sm text-gray-700">
+                    {item.label} ({item.homeTeam.abbr} vs {item.awayTeam.abbr})
+                  </label>
+                  <PlayerDropdown
+                    players={players}
+                    value={item.leadingScorer ?? ""}
+                    placeholder="Select scorer..."
+                    onChange={(value) =>
+                      setSeries((prev) =>
+                        prev.map((row, i) => (i === index ? { ...row, leadingScorer: value } : row))
+                      )
+                    }
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Deni Manual Tracker */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <div className="flex justify-between items-start mb-3">
@@ -568,6 +638,100 @@ export default function AdminClient({ year }: { year: number }) {
       <p className="text-xs text-gray-400 text-center">
         Saving triggers a full score recalculation for all participants.
       </p>
+    </div>
+  );
+}
+
+function PlayerDropdown({
+  players,
+  value,
+  onChange,
+  placeholder,
+}: {
+  players: string[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    if (!search) return players;
+    const q = search.toLowerCase();
+    return players.filter((player) => player.toLowerCase().includes(q));
+  }, [players, search]);
+
+  useEffect(() => {
+    function onClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className={`w-full px-3 py-2 rounded-lg border text-left text-sm transition-all ${
+          value
+            ? "border-gray-300 bg-white text-gray-900"
+            : "border-gray-200 bg-gray-50 text-gray-400"
+        }`}
+      >
+        <span className="truncate inline-block max-w-full">{value || placeholder || "Select..."}</span>
+      </button>
+
+      {open && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-hidden">
+          <div className="p-2 border-b border-gray-100">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search players..."
+              autoFocus
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
+            />
+          </div>
+          <div className="overflow-y-auto max-h-48">
+            <button
+              type="button"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+                setSearch("");
+              }}
+              className="w-full text-left px-3 py-2 text-sm text-gray-500 hover:bg-gray-50"
+            >
+              Clear selection
+            </button>
+            {filtered.length === 0 && <div className="px-3 py-2 text-sm text-gray-400">No players found</div>}
+            {filtered.map((player) => (
+              <button
+                key={player}
+                type="button"
+                onClick={() => {
+                  onChange(player);
+                  setOpen(false);
+                  setSearch("");
+                }}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${
+                  value === player ? "bg-gray-100 font-medium" : ""
+                }`}
+              >
+                {player}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

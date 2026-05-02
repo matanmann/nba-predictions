@@ -130,6 +130,17 @@ function RankingsView({ year, predictions, playoffLeaders, onSelectPrediction }:
   const shareRef = useRef<HTMLDivElement>(null)
   const [isCapturing, setIsCapturing] = useState(false)
 
+  async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+    if (typeof canvas.toBlob === 'function') {
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+      if (blob) return blob
+    }
+
+    const dataUrl = canvas.toDataURL('image/png')
+    const res = await fetch(dataUrl)
+    return await res.blob()
+  }
+
   async function handleShareRankings() {
     if (!shareRef.current) return
 
@@ -138,17 +149,20 @@ function RankingsView({ year, predictions, playoffLeaders, onSelectPrediction }:
       const { default: html2canvas } = await import('html2canvas')
       const canvas = await html2canvas(shareRef.current, {
         backgroundColor: '#ffffff',
-        scale: Math.min(window.devicePixelRatio || 1, 2),
+        scale: 1.5,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
       })
 
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-      if (!blob) throw new Error('Could not generate image')
+      const blob = await canvasToBlob(canvas)
+      if (!blob || blob.size === 0) throw new Error('Could not generate image')
 
       const file = new File([blob], `nba-rankings-${year}.png`, { type: 'image/png' })
       const shareTitle = `NBA Playoffs ${year} Rankings`
       const shareText = `Current rankings from the NBA predictions dashboard.`
 
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
         await navigator.share({
           title: shareTitle,
           text: shareText,

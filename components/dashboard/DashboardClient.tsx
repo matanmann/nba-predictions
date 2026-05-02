@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useDashboard } from '@/hooks/useDashboard'
 
 interface Team { id: string; name: string; abbr: string; seed: number; color: string }
@@ -127,7 +127,6 @@ export default function DashboardClient({ year }: { year: string }) {
 
 function RankingsView({ year, predictions, playoffLeaders, onSelectPrediction }: { year: string; predictions: Prediction[]; playoffLeaders: { category: string; playerName: string }[]; onSelectPrediction: (prediction: Prediction) => void }) {
   const sorted = [...predictions].sort((a, b) => b.totalScore - a.totalScore)
-  const shareRef = useRef<HTMLDivElement>(null)
   const [isCapturing, setIsCapturing] = useState(false)
 
   async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -141,19 +140,97 @@ function RankingsView({ year, predictions, playoffLeaders, onSelectPrediction }:
     return await res.blob()
   }
 
+  function renderRankingsCanvas(rows: Prediction[]): HTMLCanvasElement {
+    const width = 1080
+    const rowHeight = 72
+    const headerHeight = 110
+    const footerHeight = 44
+    const bodyHeight = Math.max(rows.length, 1) * rowHeight
+    const height = headerHeight + bodyHeight + footerHeight
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas context unavailable')
+
+    ctx.fillStyle = '#f8fafc'
+    ctx.fillRect(0, 0, width, height)
+
+    ctx.fillStyle = '#0f172a'
+    ctx.font = '700 42px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif'
+    ctx.fillText(`NBA Playoffs ${year} Rankings`, 48, 62)
+
+    ctx.fillStyle = '#64748b'
+    ctx.font = '500 24px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif'
+    ctx.fillText(`Updated from dashboard`, 48, 95)
+
+    const medals = ['🥇', '🥈', '🥉']
+    rows.forEach((p, i) => {
+      const yTop = headerHeight + i * rowHeight
+      const yMid = yTop + 45
+      const isTop = i < 3
+
+      ctx.fillStyle = isTop ? '#ffffff' : '#f1f5f9'
+      roundRect(ctx, 24, yTop + 8, width - 48, rowHeight - 12, 14)
+      ctx.fill()
+
+      const rankLabel = medals[i] ?? String(i + 1)
+      ctx.fillStyle = '#0f172a'
+      ctx.font = '700 28px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif'
+      ctx.fillText(rankLabel, 52, yMid)
+
+      ctx.fillStyle = '#1d4ed8'
+      ctx.font = '700 26px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif'
+      ctx.fillText(p.userName.slice(0, 28), 120, yMid)
+
+      const bracketPts = p.seriesPredictions.reduce((sum, sp) => sum + sp.totalScore, 0)
+      const leaderPts = p.leaderPredictions.reduce((sum, lp) => sum + lp.score, 0)
+      const genPts = p.generalPrediction?.score ?? 0
+      const snackPts = p.snackAnswers.reduce((sum, sa) => sum + sa.score, 0)
+
+      ctx.fillStyle = '#64748b'
+      ctx.font = '500 18px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif'
+      ctx.fillText(`B:${bracketPts}  L:${leaderPts}  G:${genPts}  S:${snackPts}`, 120, yMid + 22)
+
+      ctx.fillStyle = '#0f172a'
+      ctx.font = '800 32px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif'
+      const scoreText = String(p.totalScore)
+      const scoreWidth = ctx.measureText(scoreText).width
+      ctx.fillText(scoreText, width - 60 - scoreWidth, yMid + 6)
+    })
+
+    ctx.fillStyle = '#94a3b8'
+    ctx.font = '500 18px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif'
+    ctx.fillText('Shared from NBA predictions dashboard', 48, height - 16)
+
+    return canvas
+  }
+
+  function roundRect(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number
+  ) {
+    const r = Math.min(radius, width / 2, height / 2)
+    ctx.beginPath()
+    ctx.moveTo(x + r, y)
+    ctx.arcTo(x + width, y, x + width, y + height, r)
+    ctx.arcTo(x + width, y + height, x, y + height, r)
+    ctx.arcTo(x, y + height, x, y, r)
+    ctx.arcTo(x, y, x + width, y, r)
+    ctx.closePath()
+  }
+
   async function handleShareRankings() {
-    if (!shareRef.current) return
+    if (!sorted.length) return
 
     setIsCapturing(true)
     try {
-      const { default: html2canvas } = await import('html2canvas')
-      const canvas = await html2canvas(shareRef.current, {
-        backgroundColor: '#ffffff',
-        scale: 1.5,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-      })
+      const canvas = renderRankingsCanvas(sorted)
 
       const blob = await canvasToBlob(canvas)
       if (!blob || blob.size === 0) throw new Error('Could not generate image')
@@ -204,7 +281,7 @@ function RankingsView({ year, predictions, playoffLeaders, onSelectPrediction }:
       </div>
 
       {/* Rankings */}
-      <div ref={shareRef} className="space-y-2 bg-white rounded-xl p-3 border border-gray-100">
+      <div className="space-y-2 bg-white rounded-xl p-3 border border-gray-100">
         {sorted.map((p, i) => {
           const rank = i + 1
           const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null

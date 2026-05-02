@@ -32,7 +32,7 @@ export function scoreSeriesPrediction(
   const sOk = normalizePlayerName(pred.leadingScorer) === normalizePlayerName(result.leadingScorer);
 
   const winnerScore = wOk ? 3 * m : 0;
-  const gamesScore  = gOk ? 2 * m : 0;
+  const gamesScore  = wOk && gOk ? 2 * m : 0;
   const scorerScore = sOk ? 1 * m : 0;
   const rawTotal    = winnerScore + gamesScore + scorerScore;
 

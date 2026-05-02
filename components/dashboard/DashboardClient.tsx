@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useDashboard } from '@/hooks/useDashboard'
 
 interface Team { id: string; name: string; abbr: string; seed: number; color: string }
@@ -105,7 +105,7 @@ export default function DashboardClient({ year }: { year: string }) {
         ))}
       </div>
 
-      {activeTab === 'Rankings' && <RankingsView predictions={d.predictions ?? []} playoffLeaders={d.playoffLeaders ?? []} onSelectPrediction={setSelectedPrediction} />}
+      {activeTab === 'Rankings' && <RankingsView year={year} predictions={d.predictions ?? []} playoffLeaders={d.playoffLeaders ?? []} onSelectPrediction={setSelectedPrediction} />}
       {activeTab === 'Statistics' && <StatisticsView snackStats={d.snackStats ?? []} generalStats={d.generalStats ?? []} mvpStats={d.mvpStats ?? []} />}
       {activeTab === 'Bracket' && <BracketView series={d.series ?? []} seriesStats={d.seriesStats ?? []} />}
       {activeTab === 'My picks' && <MyPicksView predictions={d.predictions ?? []} series={d.series ?? []} playoffLeaders={d.playoffLeaders ?? []} generalConfig={d.generalConfig} snackQuestions={d.snackQuestions ?? []} />}
@@ -125,13 +125,72 @@ export default function DashboardClient({ year }: { year: string }) {
   )
 }
 
-function RankingsView({ predictions, playoffLeaders, onSelectPrediction }: { predictions: Prediction[]; playoffLeaders: { category: string; playerName: string }[]; onSelectPrediction: (prediction: Prediction) => void }) {
+function RankingsView({ year, predictions, playoffLeaders, onSelectPrediction }: { year: string; predictions: Prediction[]; playoffLeaders: { category: string; playerName: string }[]; onSelectPrediction: (prediction: Prediction) => void }) {
   const sorted = [...predictions].sort((a, b) => b.totalScore - a.totalScore)
+  const shareRef = useRef<HTMLDivElement>(null)
+  const [isCapturing, setIsCapturing] = useState(false)
+
+  async function handleShareRankings() {
+    if (!shareRef.current) return
+
+    setIsCapturing(true)
+    try {
+      const { default: html2canvas } = await import('html2canvas')
+      const canvas = await html2canvas(shareRef.current, {
+        backgroundColor: '#ffffff',
+        scale: Math.min(window.devicePixelRatio || 1, 2),
+      })
+
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+      if (!blob) throw new Error('Could not generate image')
+
+      const file = new File([blob], `nba-rankings-${year}.png`, { type: 'image/png' })
+      const shareTitle = `NBA Playoffs ${year} Rankings`
+      const shareText = `Current rankings from the NBA predictions dashboard.`
+
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          files: [file],
+        })
+        return
+      }
+
+      const imageUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = imageUrl
+      link.download = `nba-rankings-${year}.png`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(imageUrl)
+
+      const whatsappText = encodeURIComponent(`${shareTitle} - image downloaded, attach it in WhatsApp.`)
+      window.open(`https://wa.me/?text=${whatsappText}`, '_blank', 'noopener,noreferrer')
+    } catch (error) {
+      console.error('Failed to capture rankings:', error)
+      window.alert('Could not generate rankings image. Please try again.')
+    } finally {
+      setIsCapturing(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={handleShareRankings}
+          disabled={isCapturing || sorted.length === 0}
+          className="px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 text-xs font-medium hover:bg-green-100 disabled:opacity-50"
+        >
+          {isCapturing ? 'Preparing image...' : 'Share rankings'}
+        </button>
+      </div>
+
       {/* Rankings */}
-      <div className="space-y-2">
+      <div ref={shareRef} className="space-y-2 bg-white rounded-xl p-3 border border-gray-100">
         {sorted.map((p, i) => {
           const rank = i + 1
           const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null

@@ -402,10 +402,16 @@ export async function GET(
         if (resolvedLeaderCategories.has(leaderPred.category)) continue;
 
         let canStillHit = true;
-        if (!leaderPred.category.startsWith("__mvp_")) {
-          const teamAbbr = playerToTeamAbbr.get(normalizePlayer(leaderPred.playerName));
-          if (teamAbbr) {
-            const team = season.teams.find((entry) => entry.abbr === teamAbbr);
+        const teamAbbr = playerToTeamAbbr.get(normalizePlayer(leaderPred.playerName));
+        if (teamAbbr) {
+          const team = season.teams.find((entry) => entry.abbr === teamAbbr);
+          if (team && eliminatedTeamIds.has(team.id)) {
+            if (leaderPred.category.startsWith("__mvp_")) {
+              canStillHit = false;
+            }
+          }
+
+          if (!leaderPred.category.startsWith("__mvp_")) {
             const gamesPlayed = gamesPlayedByAbbr.get(teamAbbr) ?? 0;
             if (team && eliminatedTeamIds.has(team.id) && gamesPlayed < 8) {
               canStillHit = false;

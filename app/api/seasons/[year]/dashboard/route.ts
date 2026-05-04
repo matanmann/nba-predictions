@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import { isLocked, getLockTime } from "@/lib/lock";
 import { getPlayoffGames } from "@/lib/nba-api";
 import { getPlayoffStats } from "@/lib/nba-api";
+import { PLAYOFF_PLAYERS } from "@/lib/playoff-players";
 
 function normalizeQuestion(question: string): string {
   return question.trim().toLowerCase();
@@ -36,6 +37,7 @@ export async function GET(
   const season = await prisma.season.findUnique({
     where: { year: y },
     include: {
+      teams: true,
       series: { include: { homeTeam: true, awayTeam: true } },
       playoffLeaders: true,
       generalConfig: true,
@@ -345,6 +347,41 @@ export async function GET(
     };
   });
 
+  const playerToTeamAbbr = new Map<string, string>();
+  for (const [abbr, players] of Object.entries(PLAYOFF_PLAYERS)) {
+    for (const player of players) {
+      const key = normalizePlayer(player);
+      if (!playerToTeamAbbr.has(key)) playerToTeamAbbr.set(key, abbr);
+    }
+  }
+
+  const gamesPlayedByAbbr = new Map<string, number>();
+  for (const game of completedGames) {
+    const home = game.home_team.abbreviation;
+    const away = game.visitor_team.abbreviation;
+    gamesPlayedByAbbr.set(home, (gamesPlayedByAbbr.get(home) ?? 0) + 1);
+    gamesPlayedByAbbr.set(away, (gamesPlayedByAbbr.get(away) ?? 0) + 1);
+  }
+
+  const eliminatedTeamIds = new Set<string>();
+  for (const series of season.series) {
+    if (!series.isComplete || !series.winnerId) continue;
+    const loserId = series.winnerId === series.homeTeamId ? series.awayTeamId : series.homeTeamId;
+    eliminatedTeamIds.add(loserId);
+  }
+
+  const resolvedLeaderCategories = new Set(season.playoffLeaders.map((leader) => leader.category));
+  const unresolvedGeneralKeys = new Set(
+    ((season.generalConfig?.questions as Array<{ key: string; label: string }> | null) ?? [])
+      .map((question) => question.key)
+      .filter((key) => (season.generalConfig?.results as Record<string, number> | null)?.[key] === undefined)
+  );
+  const unresolvedSnackKeys = new Set(
+    snackQuestions
+      .filter((question) => question.result === null || question.result === undefined)
+      .map((question) => normalizeQuestion(question.question))
+  );
+
   return NextResponse.json({
     season: { year: season.year, lockedAt: season.lockedAt },
     series: season.series,
@@ -352,13 +389,71 @@ export async function GET(
     generalConfig: season.generalConfig,
     snackQuestions,
     snackQuestionLookup,
-    predictions: season.predictions.map(p => ({
-      ...p,
-      userName: p.user?.name || 'Unknown',
-    })),
+    predictions: season.predictions.map((p) => {
+      let potentialRemaining = 0;
+
+      for (const seriesPred of p.seriesPredictions) {
+        const series = season.series.find((entry) => entry.id === seriesPred.seriesId);
+        if (!series || series.isComplete) continue;
+        potentialRemaining += maxSeriesPointsForRound(series.round);
+      }
+
+      for (const leaderPred of p.leaderPredictions) {
+        if (resolvedLeaderCategories.has(leaderPred.category)) continue;
+
+        let canStillHit = true;
+        if (!leaderPred.category.startsWith("__mvp_")) {
+          const teamAbbr = playerToTeamAbbr.get(normalizePlayer(leaderPred.playerName));
+          if (teamAbbr) {
+            const team = season.teams.find((entry) => entry.abbr === teamAbbr);
+            const gamesPlayed = gamesPlayedByAbbr.get(teamAbbr) ?? 0;
+            if (team && eliminatedTeamIds.has(team.id) && gamesPlayed < 8) {
+              canStillHit = false;
+            }
+          }
+        }
+
+        if (canStillHit) potentialRemaining += 12;
+      }
+
+      if (p.generalPrediction) {
+        const answers = p.generalPrediction.answers as Record<string, number>;
+        for (const key of unresolvedGeneralKeys) {
+          if (answers[key] !== null && answers[key] !== undefined) {
+            potentialRemaining += 6;
+          }
+        }
+      }
+
+      const seenSnackKeys = new Set<string>();
+      for (const snackAnswer of p.snackAnswers) {
+        const text = snackQuestionLookup[String(snackAnswer.questionId)];
+        if (!text) continue;
+        const key = normalizeQuestion(text);
+        if (!unresolvedSnackKeys.has(key) || seenSnackKeys.has(key)) continue;
+        seenSnackKeys.add(key);
+        potentialRemaining += 2;
+      }
+
+      return {
+        ...p,
+        userName: p.user?.name || "Unknown",
+        potentialRemaining,
+        maxPossibleScore: p.totalScore + potentialRemaining,
+      };
+    }),
     seriesStats,
     snackStats,
     generalStats,
     mvpStats,
   });
+}
+
+function normalizePlayer(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function maxSeriesPointsForRound(round: number): number {
+  const multiplier = [1, 2, 4, 8][round - 1] ?? 1;
+  return Math.floor((3 + 2 + 1) * multiplier * 1.5);
 }

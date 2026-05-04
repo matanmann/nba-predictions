@@ -5,7 +5,7 @@ import { useDashboard } from '@/hooks/useDashboard'
 
 interface Team { id: string; name: string; abbr: string; seed: number; color: string }
 interface Series { id: string; round: number; conference: string; label: string; homeTeam: Team; awayTeam: Team; winnerId: string | null; gameCount: number | null; leadingScorer: string | null; isComplete: boolean }
-interface Prediction { userId: string; userName: string; totalScore: number; seriesPredictions: { seriesId: string; winnerId: string; gameCount: number; leadingScorer: string; winnerScore: number; gamesScore: number; scorerScore: number; bonusApplied: boolean; totalScore: number }[]; leaderPredictions: { category: string; playerName: string; score: number }[]; generalPrediction: { answers: Record<string, number>; score: number } | null; snackAnswers: { questionId: number; answer: boolean; score: number }[] }
+interface Prediction { userId: string; userName: string; totalScore: number; potentialRemaining?: number; maxPossibleScore?: number; seriesPredictions: { seriesId: string; winnerId: string; gameCount: number; leadingScorer: string; winnerScore: number; gamesScore: number; scorerScore: number; bonusApplied: boolean; totalScore: number }[]; leaderPredictions: { category: string; playerName: string; score: number }[]; generalPrediction: { answers: Record<string, number>; score: number } | null; snackAnswers: { questionId: number; answer: boolean; score: number }[] }
 interface SeriesStat { seriesId: string; homeTeam: string; awayTeam: string; homeTeamColor: string; awayTeamColor: string; winPercentage: number; correctPredictions: number; totalPredictions: number; homePickCount: number; awayPickCount: number; majorityTeamAbbr: string; majorityPickPercentage: number; statusText: string; homeWins: number; awayWins: number; leadingScorer: string | null; currentTopScorer: string | null; currentTopScorerAvgPts: number | null }
 interface SnackStat { questionId: number; question: string; result: boolean | null; accuracy: number | null; correctCount: number; totalCount: number; yesCount: number; noCount: number; missingCount: number; totalParticipants: number }
 interface GeneralStat { key: string; label: string; result: number | null; accuracy: number | null; correctCount: number; totalCount: number; distribution: { value: number; count: number }[]; missingCount: number; totalParticipants: number }
@@ -305,7 +305,12 @@ function RankingsView({ year, predictions, playoffLeaders, onSelectPrediction }:
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-400 hidden sm:inline">View picks</span>
-                <span className="text-lg font-bold text-gray-900">{p.totalScore}</span>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-gray-900">{p.totalScore}</div>
+                  {typeof p.maxPossibleScore === 'number' && (
+                    <div className="text-[11px] text-gray-400">max {p.maxPossibleScore}</div>
+                  )}
+                </div>
               </div>
             </button>
           )

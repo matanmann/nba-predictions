@@ -106,7 +106,7 @@ export default function DashboardClient({ year }: { year: string }) {
       </div>
 
       {activeTab === 'Rankings' && <RankingsView year={year} predictions={d.predictions ?? []} playoffLeaders={d.playoffLeaders ?? []} onSelectPrediction={setSelectedPrediction} />}
-      {activeTab === 'Statistics' && <StatisticsView snackStats={d.snackStats ?? []} generalStats={d.generalStats ?? []} mvpStats={d.mvpStats ?? []} />}
+      {activeTab === 'Statistics' && <StatisticsView snackStats={d.snackStats ?? []} generalStats={d.generalStats ?? []} mvpStats={d.mvpStats ?? []} predictions={d.predictions ?? []} playoffLeaders={d.playoffLeaders ?? []} />}
       {activeTab === 'Bracket' && <BracketView series={d.series ?? []} seriesStats={d.seriesStats ?? []} predictions={d.predictions ?? []} />}
       {activeTab === 'My picks' && <MyPicksView predictions={d.predictions ?? []} series={d.series ?? []} playoffLeaders={d.playoffLeaders ?? []} generalConfig={d.generalConfig} snackQuestions={d.snackQuestions ?? []} />}
       {activeTab === 'Deni tracker' && <DeniTracker />}
@@ -340,9 +340,70 @@ function RankingsView({ year, predictions, playoffLeaders, onSelectPrediction }:
   )
 }
 
-function StatisticsView({ snackStats, generalStats, mvpStats }: { snackStats: SnackStat[]; generalStats: GeneralStat[]; mvpStats: MvpStat[] }) {
+const STAT_LEADER_CATEGORIES = ['Points', 'Assists', 'Rebounds', 'Blocks', 'Steals'] as const
+
+function StatisticsView({ snackStats, generalStats, mvpStats, predictions, playoffLeaders }: {
+  snackStats: SnackStat[]
+  generalStats: GeneralStat[]
+  mvpStats: MvpStat[]
+  predictions: Prediction[]
+  playoffLeaders: { category: string; playerName: string }[]
+}) {
+  // Build stat leader distributions from predictions
+  const leaderStats = STAT_LEADER_CATEGORIES.map(category => {
+    const picks = predictions.flatMap(p =>
+      p.leaderPredictions.filter(lp => lp.category === category).map(lp => lp.playerName)
+    )
+    const distMap = new Map<string, number>()
+    for (const name of picks) distMap.set(name, (distMap.get(name) ?? 0) + 1)
+    const distribution = Array.from(distMap.entries()).sort((a, b) => b[1] - a[1]).map(([playerName, count]) => ({ playerName, count }))
+    const actualLeader = playoffLeaders.find(l => l.category === category)?.playerName ?? null
+    const correctCount = actualLeader ? picks.filter(p => p === actualLeader).length : 0
+    const accuracy = actualLeader && picks.length > 0 ? Math.round((correctCount / picks.length) * 100) : null
+    const missingCount = Math.max(predictions.length - picks.length, 0)
+    return { category, actualLeader, picks: picks.length, correctCount, accuracy, distribution, missingCount }
+  })
+
   return (
     <div className="space-y-6">
+      {/* Playoff Stat Leaders */}
+      {leaderStats.some(s => s.picks > 0) && (
+        <div>
+          <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Playoff Stat Leaders</div>
+          <div className="space-y-2">
+            {leaderStats.filter(s => s.picks > 0).map(stat => (
+              <div key={stat.category} className="bg-white rounded-lg border border-gray-200 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm text-gray-700">{stat.category} Leader</span>
+                  <span className="text-sm font-bold text-blue-600">{stat.accuracy !== null ? `${stat.accuracy}%` : 'Pending'}</span>
+                </div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${stat.actualLeader ? 'bg-yellow-50 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {stat.actualLeader ? `🥇 ${stat.actualLeader}` : 'Pending'}
+                  </span>
+                  <span className="text-xs text-gray-500">{stat.correctCount}/{stat.picks}</span>
+                </div>
+                <div className="space-y-1.5">
+                  {stat.distribution.slice(0, 6).map(bucket => {
+                    const pct = stat.picks > 0 ? Math.round((bucket.count / stat.picks) * 100) : 0
+                    const isActual = !!stat.actualLeader && stat.actualLeader === bucket.playerName
+                    return (
+                      <div key={bucket.playerName} className="flex items-center gap-2">
+                        <span className={`min-w-27.5 text-[11px] truncate ${isActual ? 'font-semibold text-green-700' : 'text-gray-600'}`} title={bucket.playerName}>{bucket.playerName}</span>
+                        <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+                          <div className={`h-full rounded-full ${isActual ? 'bg-green-500' : 'bg-blue-400'}`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="w-8 text-[11px] text-gray-500 text-right">{bucket.count}</span>
+                      </div>
+                    )
+                  })}
+                  {stat.missingCount > 0 && <div className="text-[11px] text-gray-400">No pick: {stat.missingCount}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {/* Yes/No Questions Accuracy */}
       {snackStats.length > 0 && (
         <div>

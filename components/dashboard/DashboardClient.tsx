@@ -107,7 +107,7 @@ export default function DashboardClient({ year }: { year: string }) {
 
       {activeTab === 'Rankings' && <RankingsView year={year} predictions={d.predictions ?? []} playoffLeaders={d.playoffLeaders ?? []} onSelectPrediction={setSelectedPrediction} />}
       {activeTab === 'Statistics' && <StatisticsView snackStats={d.snackStats ?? []} generalStats={d.generalStats ?? []} mvpStats={d.mvpStats ?? []} />}
-      {activeTab === 'Bracket' && <BracketView series={d.series ?? []} seriesStats={d.seriesStats ?? []} />}
+      {activeTab === 'Bracket' && <BracketView series={d.series ?? []} seriesStats={d.seriesStats ?? []} predictions={d.predictions ?? []} />}
       {activeTab === 'My picks' && <MyPicksView predictions={d.predictions ?? []} series={d.series ?? []} playoffLeaders={d.playoffLeaders ?? []} generalConfig={d.generalConfig} snackQuestions={d.snackQuestions ?? []} />}
       {activeTab === 'Deni tracker' && <DeniTracker />}
 
@@ -487,7 +487,143 @@ function StatisticsView({ snackStats, generalStats, mvpStats }: { snackStats: Sn
 }
 
 
-function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: SeriesStat[] }) {
+function SeriesDetailModal({ series, stat, predictions, onClose }: {
+  series: Series
+  stat: SeriesStat | undefined
+  predictions: Prediction[]
+  onClose: () => void
+}) {
+  const seriesPreds = predictions.map(p => {
+    const sp = p.seriesPredictions.find(x => x.seriesId === series.id)
+    return sp ? { userName: p.userName, ...sp } : null
+  }).filter(Boolean) as ({ userName: string } & Prediction['seriesPredictions'][number])[]
+
+  const totalPreds = seriesPreds.length
+
+  // Winner distribution
+  const homePicks = seriesPreds.filter(p => p.winnerId === series.homeTeam.id).length
+  const awayPicks = seriesPreds.filter(p => p.winnerId === series.awayTeam.id).length
+
+  // Game count distribution
+  const gameCountDist: Record<number, number> = {}
+  for (const p of seriesPreds) {
+    gameCountDist[p.gameCount] = (gameCountDist[p.gameCount] ?? 0) + 1
+  }
+  const gameCounts = [4, 5, 6, 7].map(n => ({ count: n, picks: gameCountDist[n] ?? 0 }))
+  const maxGamePicks = Math.max(...gameCounts.map(g => g.picks), 1)
+
+  // Scorer distribution
+  const scorerDist: Record<string, number> = {}
+  for (const p of seriesPreds) {
+    if (p.leadingScorer) scorerDist[p.leadingScorer] = (scorerDist[p.leadingScorer] ?? 0) + 1
+  }
+  const scorers = Object.entries(scorerDist).sort((a, b) => b[1] - a[1])
+  const maxScorerPicks = Math.max(...scorers.map(s => s[1]), 1)
+
+  const hasTBD = isTBDTeam(series.homeTeam.id, series.awayTeam.id)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between">
+          <div>
+            <div className="text-xs text-gray-400 mb-0.5">{series.label}</div>
+            <div className="text-base font-semibold text-gray-900">
+              {hasTBD ? 'TBD vs TBD' : `${series.homeTeam.abbr} vs ${series.awayTeam.abbr}`}
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-full">✕</button>
+        </div>
+
+        <div className="px-5 py-4 space-y-6">
+          {totalPreds === 0 && <p className="text-sm text-gray-400 text-center py-4">No predictions for this series</p>}
+
+          {totalPreds > 0 && !hasTBD && (
+            <>
+              {/* Winner split */}
+              <div>
+                <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Winner picks · {totalPreds} total</div>
+                {[{ team: series.homeTeam, picks: homePicks }, { team: series.awayTeam, picks: awayPicks }].map(({ team, picks }) => {
+                  const pct = totalPreds > 0 ? Math.round((picks / totalPreds) * 100) : 0
+                  const isWinner = series.winnerId === team.id
+                  return (
+                    <div key={team.id} className="mb-2">
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <img src={teamLogoUrl(team.abbr)} alt={team.abbr} className="w-4 h-4" />
+                          <span className={`font-medium ${isWinner ? 'text-green-700' : 'text-gray-700'}`}>{team.abbr}</span>
+                          {isWinner && <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full">Winner</span>}
+                        </div>
+                        <span className="text-gray-500">{picks} ({pct}%)</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Game count distribution */}
+              <div>
+                <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Number of games</div>
+                <div className="grid grid-cols-4 gap-2">
+                  {gameCounts.map(({ count, picks }) => {
+                    const pct = Math.round((picks / maxGamePicks) * 100)
+                    const isActual = series.isComplete && series.gameCount === count
+                    return (
+                      <div key={count} className="flex flex-col items-center gap-1">
+                        <div className="w-full h-20 bg-gray-100 rounded-lg relative overflow-hidden flex items-end">
+                          <div
+                            className={`w-full rounded-b-lg transition-all ${isActual ? 'bg-green-400' : 'bg-indigo-300'}`}
+                            style={{ height: `${pct}%` }}
+                          />
+                        </div>
+                        <span className={`text-xs font-semibold ${isActual ? 'text-green-600' : 'text-gray-600'}`}>{count}G</span>
+                        <span className="text-[11px] text-gray-400">{picks}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Scorer distribution */}
+              {scorers.length > 0 && (
+                <div>
+                  <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Top scorer picks</div>
+                  <div className="space-y-2">
+                    {scorers.map(([player, picks]) => {
+                      const pct = Math.round((picks / maxScorerPicks) * 100)
+                      const isActual = !!stat?.leadingScorer && stat.leadingScorer === player
+                      return (
+                        <div key={player}>
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`font-medium ${isActual ? 'text-green-700' : 'text-gray-700'}`}>{player}</span>
+                              {isActual && <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full">Actual</span>}
+                            </div>
+                            <span className="text-gray-500">{picks}</span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+                            <div className="h-full rounded-full bg-amber-400 transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BracketView({ series, seriesStats, predictions }: { series: Series[]; seriesStats: SeriesStat[]; predictions: Prediction[] }) {
+  const [selectedSeries, setSelectedSeries] = useState<Series | null>(null)
   const rounds = [1, 2, 3, 4]
   const roundNames: Record<number, string> = { 1: 'First round', 2: 'Conference semis', 3: 'Conference finals', 4: 'NBA Finals' }
   const seriesStatsMap = new Map(seriesStats.map(s => [s.seriesId, s]))
@@ -495,6 +631,14 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
 
   return (
     <div className="space-y-8">
+      {selectedSeries && (
+        <SeriesDetailModal
+          series={selectedSeries}
+          stat={seriesStatsMap.get(selectedSeries.id)}
+          predictions={predictions}
+          onClose={() => setSelectedSeries(null)}
+        />
+      )}
       {rounds.map(round => {
         const rs = series.filter(s => s.round === round)
         if (!rs.length) return null
@@ -506,7 +650,7 @@ function BracketView({ series, seriesStats }: { series: Series[]; seriesStats: S
                 const stat = seriesStatsMap.get(s.id)
                 const hasTBD = isTBD(s)
                 return (
-                  <div key={s.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                  <div key={s.id} className="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:border-indigo-200 hover:shadow-sm transition-all" onClick={() => setSelectedSeries(s)}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[11px] text-gray-400">{s.label}</span>
                       <div className="flex items-center gap-2">

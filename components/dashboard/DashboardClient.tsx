@@ -10,7 +10,7 @@ interface SeriesStat { seriesId: string; homeTeam: string; awayTeam: string; hom
 interface SnackStat { questionId: number; question: string; result: boolean | null; accuracy: number | null; correctCount: number; totalCount: number; yesCount: number; noCount: number; missingCount: number; totalParticipants: number }
 interface GeneralStat { key: string; label: string; result: number | null; accuracy: number | null; correctCount: number; totalCount: number; distribution: { value: number; count: number }[]; missingCount: number; totalParticipants: number }
 interface MvpStat { role: string; label: string; leader: string | null; accuracy: number | null; correctCount: number; totalCount: number; totalParticipants: number; missingCount: number; distribution: { playerName: string; count: number }[] }
-interface DashboardData { locked?: boolean; season?: { year: number; lockedAt: string }; series?: Series[]; playoffLeaders?: { category: string; playerName: string }[]; generalConfig?: { questions: { key: string; label: string }[]; results: Record<string, number> | null }; snackQuestions?: { id: number; question: string; result: boolean | null; order: number }[]; snackQuestionLookup?: Record<string, string>; predictions?: Prediction[]; seriesStats?: SeriesStat[]; snackStats?: SnackStat[]; generalStats?: GeneralStat[]; mvpStats?: MvpStat[] }
+interface DashboardData { locked?: boolean; currentUserId?: string; season?: { year: number; lockedAt: string }; series?: Series[]; playoffLeaders?: { category: string; playerName: string }[]; generalConfig?: { questions: { key: string; label: string }[]; results: Record<string, number> | null }; snackQuestions?: { id: number; question: string; result: boolean | null; order: number }[]; snackQuestionLookup?: Record<string, string>; predictions?: Prediction[]; seriesStats?: SeriesStat[]; snackStats?: SnackStat[]; generalStats?: GeneralStat[]; mvpStats?: MvpStat[] }
 
 const MVP_CATEGORY_LABELS: Record<string, string> = {
   __mvp_east: 'East MVP',
@@ -108,7 +108,7 @@ export default function DashboardClient({ year }: { year: string }) {
       {activeTab === 'Rankings' && <RankingsView year={year} predictions={d.predictions ?? []} playoffLeaders={d.playoffLeaders ?? []} onSelectPrediction={setSelectedPrediction} />}
       {activeTab === 'Statistics' && <StatisticsView snackStats={d.snackStats ?? []} generalStats={d.generalStats ?? []} mvpStats={d.mvpStats ?? []} predictions={d.predictions ?? []} playoffLeaders={d.playoffLeaders ?? []} />}
       {activeTab === 'Bracket' && <BracketView series={d.series ?? []} seriesStats={d.seriesStats ?? []} predictions={d.predictions ?? []} />}
-      {activeTab === 'My picks' && <MyPicksView predictions={d.predictions ?? []} series={d.series ?? []} playoffLeaders={d.playoffLeaders ?? []} generalConfig={d.generalConfig} snackQuestions={d.snackQuestions ?? []} />}
+      {activeTab === 'My picks' && <MyPicksView predictions={d.predictions ?? []} currentUserId={d.currentUserId} series={d.series ?? []} generalConfig={d.generalConfig} snackQuestions={d.snackQuestions ?? []} />}
       {activeTab === 'Deni tracker' && <DeniTracker />}
 
       {selectedPrediction && (
@@ -833,76 +833,120 @@ function BracketView({ series, seriesStats, predictions }: { series: Series[]; s
   )
 }
 
-function MyPicksView({ predictions, series, playoffLeaders, generalConfig, snackQuestions }: {
-  predictions: Prediction[]; series: Series[]; playoffLeaders: { category: string; playerName: string }[]
+function MyPicksView({ predictions, currentUserId, series, generalConfig, snackQuestions }: {
+  predictions: Prediction[]
+  currentUserId?: string
+  series: Series[]
   generalConfig?: { questions: { key: string; label: string }[]; results: Record<string, number> | null }
   snackQuestions: { id: number; question: string; result: boolean | null; order: number }[]
 }) {
-  const completedSeries = series.filter(s => s.isComplete)
+  const mine = currentUserId ? predictions.find((p) => p.userId === currentUserId) : null
+  const seriesById = new Map(series.map((s) => [s.id, s]))
+  const snackById = new Map(snackQuestions.map((q) => [q.id, q.question]))
+
+  if (!mine) {
+    return (
+      <div className="rounded-xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
+        Your picks were not found for this season.
+      </div>
+    )
+  }
+
+  const totalSeriesPoints = mine.seriesPredictions.reduce((sum, item) => sum + item.totalScore, 0)
+  const totalLeaderPoints = mine.leaderPredictions.reduce((sum, item) => sum + item.score, 0)
+  const totalGeneralPoints = mine.generalPrediction?.score ?? 0
+  const totalSnackPoints = mine.snackAnswers.reduce((sum, item) => sum + item.score, 0)
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-gray-500">{predictions.length} participants · {completedSeries.length}/{series.length} series complete</p>
+      <p className="text-sm text-gray-500">
+        Your total score: <span className="font-semibold text-gray-700">{mine.totalScore}</span>
+      </p>
 
-      {completedSeries.length > 0 && (
-        <div>
-          <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Completed series</div>
-          {completedSeries.map(s => {
-            const winner = s.winnerId === s.homeTeam.id ? s.homeTeam : s.awayTeam
+      <div>
+        <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Your series picks · {totalSeriesPoints} pts</div>
+        <div className="space-y-2">
+          {[...mine.seriesPredictions]
+            .sort((a, b) => {
+              const sa = seriesById.get(a.seriesId)
+              const sb = seriesById.get(b.seriesId)
+              if (!sa || !sb) return 0
+              if (sa.round !== sb.round) return sa.round - sb.round
+              return sa.label.localeCompare(sb.label)
+            })
+            .map((pick) => {
+              const s = seriesById.get(pick.seriesId)
+              if (!s) return null
+              const pickedWinner = pick.winnerId === s.homeTeam.id ? s.homeTeam.abbr : s.awayTeam.abbr
+              return (
+                <div key={pick.seriesId} className="bg-white rounded-xl border border-gray-200 p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] text-gray-400">{s.label} · Round {s.round}</span>
+                    <span className={`text-xs font-semibold ${pick.totalScore > 0 ? 'text-green-700' : 'text-gray-400'}`}>
+                      {pick.totalScore > 0 ? `+${pick.totalScore}` : '0'}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    {pickedWinner} in {pick.gameCount} · Top scorer: {pick.leadingScorer || '—'}
+                  </div>
+                  <div className="mt-1 text-[11px] text-gray-500">
+                    Winner {pick.winnerScore} · Games {pick.gamesScore} · Scorer {pick.scorerScore}
+                    {pick.bonusApplied ? ' · Bonus applied' : ''}
+                  </div>
+                </div>
+              )
+            })}
+        </div>
+      </div>
+
+      <div>
+        <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Your leader picks · {totalLeaderPoints} pts</div>
+        <div className="space-y-2">
+          {mine.leaderPredictions.map((pick) => (
+            <div key={pick.category} className="bg-white rounded-xl border border-gray-200 p-3 flex items-center justify-between">
+              <div>
+                <div className="text-[11px] text-gray-400">{MVP_CATEGORY_LABELS[pick.category] ?? `${pick.category} leader`}</div>
+                <div className="text-sm text-gray-700">{pick.playerName}</div>
+              </div>
+              <span className={`text-xs font-semibold ${pick.score > 0 ? 'text-green-700' : 'text-gray-400'}`}>
+                {pick.score > 0 ? `+${pick.score}` : '0'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Your general picks · {totalGeneralPoints} pts</div>
+        <div className="space-y-2">
+          {(generalConfig?.questions ?? []).map((q) => {
+            const value = mine.generalPrediction?.answers?.[q.key]
             return (
-              <div key={s.id} className="bg-white rounded-xl border border-gray-200 p-4 mb-2">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] text-gray-400">{s.label} · Round {s.round}</span>
-                  <span className="text-[11px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Final · {s.gameCount} games</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: winner.color }} />
-                  <span className="text-sm font-medium">{winner.abbr} wins</span>
-                  {s.leadingScorer && <span className="text-xs text-gray-400 ml-2">Top scorer: {s.leadingScorer}</span>}
-                </div>
+              <div key={q.key} className="bg-white rounded-xl border border-gray-200 p-3 flex items-center justify-between">
+                <span className="text-sm text-gray-600">{q.label}</span>
+                <span className="text-sm font-medium text-gray-700">{value ?? '—'}</span>
               </div>
             )
           })}
         </div>
-      )}
+      </div>
 
-      {playoffLeaders.length > 0 && (
-        <div>
-          <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Current stat leaders</div>
-          {playoffLeaders.map(l => (
-            <div key={l.category} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-              <span className="text-sm text-gray-500">{l.category}</span>
-              <span className="text-sm font-medium text-gray-700">{l.playerName}</span>
+      <div>
+        <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Your yes/no picks · {totalSnackPoints} pts</div>
+        <div className="space-y-2">
+          {mine.snackAnswers.map((answer) => (
+            <div key={answer.questionId} className="bg-white rounded-xl border border-gray-200 p-3 flex items-center justify-between">
+              <span className="text-sm text-gray-600">{snackById.get(answer.questionId) ?? `Question ${answer.questionId}`}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-700">{answer.answer ? 'Yes' : 'No'}</span>
+                <span className={`text-xs font-semibold ${answer.score > 0 ? 'text-green-700' : 'text-gray-400'}`}>
+                  {answer.score > 0 ? `+${answer.score}` : '0'}
+                </span>
+              </div>
             </div>
           ))}
         </div>
-      )}
-
-      {/* General results */}
-      {generalConfig?.results && (
-        <div>
-          <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">General stats</div>
-          {generalConfig.questions.map(q => (
-            <div key={q.key} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-              <span className="text-sm text-gray-500">{q.label}</span>
-              <span className="text-sm font-medium text-gray-700">{generalConfig.results?.[q.key] ?? '—'}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Snack results */}
-      {snackQuestions.some(q => q.result !== null) && (
-        <div>
-          <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Yes/No results</div>
-          {snackQuestions.filter(q => q.result !== null).map(q => (
-            <div key={q.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-              <span className="text-sm text-gray-500">{q.question}</span>
-              <span className={`text-sm font-medium ${q.result ? 'text-green-600' : 'text-red-600'}`}>{q.result ? 'Yes' : 'No'}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      </div>
     </div>
   )
 }

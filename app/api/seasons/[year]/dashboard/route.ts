@@ -383,6 +383,7 @@ export async function GET(
   );
 
   return NextResponse.json({
+    currentUserId: userId,
     season: { year: season.year, lockedAt: season.lockedAt },
     series: season.series,
     playoffLeaders: season.playoffLeaders,

@@ -675,6 +675,59 @@ function SeriesDetailModal({ series, stat, predictions, onClose }: {
                   </div>
                 </div>
               )}
+
+              {/* Per-user scores */}
+              {series.isComplete && (
+                <div>
+                  <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">Points earned</div>
+                  <div className="space-y-1.5">
+                    {[...seriesPreds]
+                      .sort((a, b) => b.totalScore - a.totalScore)
+                      .map(p => {
+                        const winnerTeam = p.winnerId === series.homeTeam.id ? series.homeTeam.abbr : series.awayTeam.abbr
+                        const correctWinner = p.winnerId === series.winnerId
+                        return (
+                          <div key={p.userName} className={`flex items-center gap-2 px-3 py-2 rounded-lg ${p.totalScore > 0 ? 'bg-green-50' : 'bg-gray-50'}`}>
+                            <span className="flex-1 text-xs font-medium text-gray-700 truncate">{p.userName}</span>
+                            <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                              <span className={correctWinner ? 'text-green-600' : 'text-red-400'}>{winnerTeam}</span>
+                              <span>·</span>
+                              <span>{p.gameCount}G</span>
+                              {p.leadingScorer && <><span>·</span><span className="truncate max-w-[70px]">{p.leadingScorer.split(' ').pop()}</span></>}
+                            </div>
+                            <span className={`text-xs font-bold min-w-[28px] text-right ${p.totalScore > 0 ? 'text-green-700' : 'text-gray-400'}`}>
+                              {p.totalScore > 0 ? `+${p.totalScore}` : '0'}
+                            </span>
+                            {p.bonusApplied && <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1 py-0.5 rounded">bonus</span>}
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* In-progress: show picks without scores */}
+              {!series.isComplete && (
+                <div>
+                  <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">User picks</div>
+                  <div className="space-y-1.5">
+                    {seriesPreds.map(p => {
+                      const winnerTeam = p.winnerId === series.homeTeam.id ? series.homeTeam.abbr : series.awayTeam.abbr
+                      return (
+                        <div key={p.userName} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50">
+                          <span className="flex-1 text-xs font-medium text-gray-700 truncate">{p.userName}</span>
+                          <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                            <span className="font-medium text-gray-600">{winnerTeam}</span>
+                            <span>·</span>
+                            <span>{p.gameCount}G</span>
+                            {p.leadingScorer && <><span>·</span><span className="truncate max-w-[70px]">{p.leadingScorer.split(' ').pop()}</span></>}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

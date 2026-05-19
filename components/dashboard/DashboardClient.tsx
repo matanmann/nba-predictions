@@ -72,6 +72,12 @@ function getTBDLogoUrl(): string {
   return 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23e5e7eb%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%22 y=%2260%22 font-size=%2232%22 font-weight=%22bold%22 fill=%22%237c8591%22 text-anchor=%22middle%22%3ETBD%3C/text%3E%3C/svg%3E'
 }
 
+function resolvePickedTeam(series: Pick<Series, 'homeTeam' | 'awayTeam'>, winnerId: string): Team | null {
+  if (winnerId === series.homeTeam.id || winnerId === series.homeTeam.abbr) return series.homeTeam
+  if (winnerId === series.awayTeam.id || winnerId === series.awayTeam.abbr) return series.awayTeam
+  return null
+}
+
 const TABS = ['Rankings', 'Statistics', 'Bracket', 'My picks', 'Deni tracker'] as const
 type Tab = typeof TABS[number]
 
@@ -562,8 +568,8 @@ function SeriesDetailModal({ series, stat, predictions, onClose }: {
   const totalPreds = seriesPreds.length
 
   // Winner distribution
-  const homePicks = seriesPreds.filter(p => p.winnerId === series.homeTeam.id).length
-  const awayPicks = seriesPreds.filter(p => p.winnerId === series.awayTeam.id).length
+  const homePicks = seriesPreds.filter(p => resolvePickedTeam(series, p.winnerId)?.id === series.homeTeam.id).length
+  const awayPicks = seriesPreds.filter(p => resolvePickedTeam(series, p.winnerId)?.id === series.awayTeam.id).length
 
   // Game count distribution
   const gameCountDist: Record<number, number> = {}
@@ -684,7 +690,7 @@ function SeriesDetailModal({ series, stat, predictions, onClose }: {
                     {[...seriesPreds]
                       .sort((a, b) => b.totalScore - a.totalScore)
                       .map(p => {
-                        const winnerTeam = p.winnerId === series.homeTeam.id ? series.homeTeam.abbr : series.awayTeam.abbr
+                        const winnerTeam = resolvePickedTeam(series, p.winnerId)?.abbr ?? 'Unknown'
                         const correctWinner = p.winnerId === series.winnerId
                         return (
                           <div key={p.userName} className={`flex items-center gap-2 px-3 py-2 rounded-lg ${p.totalScore > 0 ? 'bg-green-50' : 'bg-gray-50'}`}>
@@ -712,7 +718,7 @@ function SeriesDetailModal({ series, stat, predictions, onClose }: {
                   <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">User picks</div>
                   <div className="space-y-1.5">
                     {seriesPreds.map(p => {
-                      const winnerTeam = p.winnerId === series.homeTeam.id ? series.homeTeam.abbr : series.awayTeam.abbr
+                      const winnerTeam = resolvePickedTeam(series, p.winnerId)?.abbr ?? 'Unknown'
                       return (
                         <div key={p.userName} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50">
                           <span className="flex-1 text-xs font-medium text-gray-700 truncate">{p.userName}</span>
@@ -877,7 +883,7 @@ function MyPicksView({ predictions, currentUserId, series, generalConfig, snackQ
             .map((pick) => {
               const s = seriesById.get(pick.seriesId)
               if (!s) return null
-              const pickedWinner = pick.winnerId === s.homeTeam.id ? s.homeTeam.abbr : s.awayTeam.abbr
+              const pickedWinner = resolvePickedTeam(s, pick.winnerId)?.abbr ?? 'Unknown'
               return (
                 <div key={pick.seriesId} className="bg-white rounded-xl border border-gray-200 p-3">
                   <div className="flex items-center justify-between mb-1">

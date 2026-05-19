@@ -690,7 +690,7 @@ function SeriesDetailModal({ series, stat, predictions, onClose }: {
                     {[...seriesPreds]
                       .sort((a, b) => b.totalScore - a.totalScore)
                       .map(p => {
-                        const winnerTeam = resolvePickedTeam(series, p.winnerId)?.abbr ?? 'Unknown'
+                        const winnerTeam = resolvePickedTeam(series, p.winnerId)?.abbr ?? ''
                         const correctWinner = p.winnerId === series.winnerId
                         return (
                           <div key={p.userName} className={`flex items-center gap-2 px-3 py-2 rounded-lg ${p.totalScore > 0 ? 'bg-green-50' : 'bg-gray-50'}`}>
@@ -718,7 +718,7 @@ function SeriesDetailModal({ series, stat, predictions, onClose }: {
                   <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">User picks</div>
                   <div className="space-y-1.5">
                     {seriesPreds.map(p => {
-                      const winnerTeam = resolvePickedTeam(series, p.winnerId)?.abbr ?? 'Unknown'
+                      const winnerTeam = resolvePickedTeam(series, p.winnerId)?.abbr ?? ''
                       return (
                         <div key={p.userName} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50">
                           <span className="flex-1 text-xs font-medium text-gray-700 truncate">{p.userName}</span>
@@ -883,7 +883,7 @@ function MyPicksView({ predictions, currentUserId, series, generalConfig, snackQ
             .map((pick) => {
               const s = seriesById.get(pick.seriesId)
               if (!s) return null
-              const pickedWinner = resolvePickedTeam(s, pick.winnerId)?.abbr ?? 'Unknown'
+              const pickedWinner = resolvePickedTeam(s, pick.winnerId)?.abbr ?? ''
               return (
                 <div key={pick.seriesId} className="bg-white rounded-xl border border-gray-200 p-3">
                   <div className="flex items-center justify-between mb-1">
